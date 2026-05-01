@@ -4,6 +4,7 @@
 #include "game.h"
 #include "input.h"
 #include "render.h"
+#include <stdio.h>
 
 int main(void) {
     game_t game;
@@ -23,6 +24,6 @@ int main(void) {
 	ts.tv_nsec = 16666 * 1000;
 	nanosleep(&ts, NULL);
     }
-
+    printf("GAME OVER. Final score: %d\n", game.score);
     return 0;
 }

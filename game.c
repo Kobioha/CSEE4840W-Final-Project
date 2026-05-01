@@ -74,6 +74,12 @@ static void update_enemies(game_t *g) {
         if (e->x > p->x) e->x--;
         if (e->y < p->y) e->y++;
         if (e->y > p->y) e->y--;
+
+	/*Makes the player lose hp if an enemy steps over the trench!*/
+	if(e->y >= SCREEN_H - 20){
+	  e->active = 0;
+	  g->player_hp -= 10;
+	}
     }
 }
 /*Updates bullet position*/
