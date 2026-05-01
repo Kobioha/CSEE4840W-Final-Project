@@ -14,7 +14,9 @@ int main(void) {
         uint16_t input = input_read(game.frame);
 
         game_tick(&game, input);
-        render_frame(&game);
+	if(game.frame % 10 == 0){
+	  render_frame(&game);
+	}
 
 	struct timespec ts;
 	ts.tv_sec = 0;
