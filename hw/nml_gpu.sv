@@ -95,7 +95,13 @@ module nml_gpu (
         end
     end
 
-    assign eval_sprtab_rdata = sprite_table_active[eval_sprtab_raddr];
+    // Smoke-test: read sprite eval data from the shadow table directly.
+    // Quartus 21.1 synthesises sprite_table_active as registers (because the
+    // bulk swap loop writes 32 entries in one cycle), and $readmemh init
+    // values don't propagate to those registers reliably. Reading from
+    // shadow keeps the $readmemh init visible to sprite_eval. When Phase 2
+    // (HPS-driven double buffering) lands, restore active and fix the swap.
+    assign eval_sprtab_rdata = sprite_table_shadow[eval_sprtab_raddr];
 
     // B. Palette RAM
     logic [23:0] palette_ram [0:255];
