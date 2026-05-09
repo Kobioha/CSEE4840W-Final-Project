@@ -1,0 +1,5 @@
+QUARTUS_VERSION = "20.1"
+DATE = "Thu May 07 2026"
+
+# Revisions
+PROJECT_REVISION = "nml_gpu"

@@ -1,0 +1,143 @@
+# nml_gpu.qsf -- Quartus settings for the No Man's Land smoke-test bitstream.
+#
+# Target board: Terasic DE1-SoC (Cyclone V SE 5CSEMA5F31C6).
+# Pin assignments below are taken from the public DE1-SoC User Manual
+# and the Terasic Golden Hardware Reference Design (GHRD) for VGA on the
+# ADV7123 DAC. If the monitor shows "no signal", verify these pin names
+# against the GHRD .qsf shipped on the DE1-SoC system CD.
+
+set_global_assignment -name FAMILY                   "Cyclone V"
+set_global_assignment -name DEVICE                   5CSEMA5F31C6
+set_global_assignment -name TOP_LEVEL_ENTITY         de1soc_top
+set_global_assignment -name PROJECT_OUTPUT_DIRECTORY output_files
+set_global_assignment -name MIN_CORE_JUNCTION_TEMP   0
+set_global_assignment -name MAX_CORE_JUNCTION_TEMP   85
+set_global_assignment -name DEVICE_FILTER_PACKAGE    FBGA
+set_global_assignment -name DEVICE_FILTER_PIN_COUNT  896
+set_global_assignment -name DEVICE_FILTER_SPEED_GRADE 6
+
+# Source files (paths are relative to this .qsf, which lives in hw/quartus/)
+set_global_assignment -name SYSTEMVERILOG_FILE       ../de1soc_top.sv
+set_global_assignment -name SYSTEMVERILOG_FILE       ../nml_gpu.sv
+set_global_assignment -name SYSTEMVERILOG_FILE       ../avalon_slave_iface.sv
+set_global_assignment -name SYSTEMVERILOG_FILE       ../vga_timing.sv
+set_global_assignment -name SYSTEMVERILOG_FILE       ../sprite_eval.sv
+set_global_assignment -name SYSTEMVERILOG_FILE       ../sprite_fetch.sv
+set_global_assignment -name SYSTEMVERILOG_FILE       ../compositor.sv
+set_global_assignment -name VERILOG_FILE             ../pll_25mhz.v
+
+# Search path so $readmemh finds the hex files in hw/
+set_global_assignment -name SEARCH_PATH              ..
+
+# Generate .rbf alongside the .sof so the FPGA can be loaded from Linux.
+set_global_assignment -name GENERATE_RBF_FILE        ON
+
+# -----------------------------------------------------------------------------
+# Pin assignments - DE1-SoC
+# -----------------------------------------------------------------------------
+
+# Clock
+set_location_assignment PIN_AF14 -to CLOCK_50
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to CLOCK_50
+
+# Push-buttons (active low)
+set_location_assignment PIN_AA14 -to KEY[0]
+set_location_assignment PIN_AA15 -to KEY[1]
+set_location_assignment PIN_W15  -to KEY[2]
+set_location_assignment PIN_Y16  -to KEY[3]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to KEY[0]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to KEY[1]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to KEY[2]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to KEY[3]
+
+# Slide switches
+set_location_assignment PIN_AB12 -to SW[0]
+set_location_assignment PIN_AC12 -to SW[1]
+set_location_assignment PIN_AF9  -to SW[2]
+set_location_assignment PIN_AF10 -to SW[3]
+set_location_assignment PIN_AD11 -to SW[4]
+set_location_assignment PIN_AD12 -to SW[5]
+set_location_assignment PIN_AE11 -to SW[6]
+set_location_assignment PIN_AC9  -to SW[7]
+set_location_assignment PIN_AD10 -to SW[8]
+set_location_assignment PIN_AE12 -to SW[9]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to SW[0]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to SW[1]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to SW[2]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to SW[3]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to SW[4]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to SW[5]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to SW[6]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to SW[7]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to SW[8]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to SW[9]
+
+# Red LEDs
+set_location_assignment PIN_V16 -to LEDR[0]
+set_location_assignment PIN_W16 -to LEDR[1]
+set_location_assignment PIN_V17 -to LEDR[2]
+set_location_assignment PIN_V18 -to LEDR[3]
+set_location_assignment PIN_W17 -to LEDR[4]
+set_location_assignment PIN_W19 -to LEDR[5]
+set_location_assignment PIN_Y19 -to LEDR[6]
+set_location_assignment PIN_W20 -to LEDR[7]
+set_location_assignment PIN_W21 -to LEDR[8]
+set_location_assignment PIN_Y21 -to LEDR[9]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to LEDR[0]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to LEDR[1]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to LEDR[2]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to LEDR[3]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to LEDR[4]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to LEDR[5]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to LEDR[6]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to LEDR[7]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to LEDR[8]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to LEDR[9]
+
+# VGA - ADV7123 DAC
+set_location_assignment PIN_A13 -to VGA_R[0]
+set_location_assignment PIN_C13 -to VGA_R[1]
+set_location_assignment PIN_E13 -to VGA_R[2]
+set_location_assignment PIN_B12 -to VGA_R[3]
+set_location_assignment PIN_C12 -to VGA_R[4]
+set_location_assignment PIN_D12 -to VGA_R[5]
+set_location_assignment PIN_E12 -to VGA_R[6]
+set_location_assignment PIN_F13 -to VGA_R[7]
+set_location_assignment PIN_J9  -to VGA_G[0]
+set_location_assignment PIN_J10 -to VGA_G[1]
+set_location_assignment PIN_H12 -to VGA_G[2]
+set_location_assignment PIN_G10 -to VGA_G[3]
+set_location_assignment PIN_G11 -to VGA_G[4]
+set_location_assignment PIN_G12 -to VGA_G[5]
+set_location_assignment PIN_F11 -to VGA_G[6]
+set_location_assignment PIN_E11 -to VGA_G[7]
+set_location_assignment PIN_B13 -to VGA_B[0]
+set_location_assignment PIN_G13 -to VGA_B[1]
+set_location_assignment PIN_H13 -to VGA_B[2]
+set_location_assignment PIN_F14 -to VGA_B[3]
+set_location_assignment PIN_H14 -to VGA_B[4]
+set_location_assignment PIN_F15 -to VGA_B[5]
+set_location_assignment PIN_G15 -to VGA_B[6]
+set_location_assignment PIN_J14 -to VGA_B[7]
+set_location_assignment PIN_B11 -to VGA_HS
+set_location_assignment PIN_D11 -to VGA_VS
+set_location_assignment PIN_F10 -to VGA_BLANK_N
+set_location_assignment PIN_C10 -to VGA_SYNC_N
+set_location_assignment PIN_A11 -to VGA_CLK
+
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_R[*]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_G[*]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_B[*]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_HS
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_VS
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_BLANK_N
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_SYNC_N
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_CLK
+
+# Treat unused pins as inputs tri-stated (matches GHRD behavior; safer than
+# driving them as outputs at unknown levels next to HPS-driven traces).
+set_global_assignment -name STRATIX_DEVICE_IO_STANDARD "3.3-V LVTTL"
+set_global_assignment -name RESERVE_ALL_UNUSED_PINS "AS INPUT TRI-STATED"
+
+# Synthesis settings: keep the divide-by-2 PLL register on a global clock route.
+set_global_assignment -name AUTO_GLOBAL_CLOCK_BUFFER ON

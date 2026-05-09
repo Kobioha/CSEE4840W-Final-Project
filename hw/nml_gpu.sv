@@ -23,14 +23,16 @@ module nml_gpu (
     assign vga_sync_n = 1'b0; // Not used for our DAC
 
     // =========================================================================
-    // 1. CLOCK GENERATION (PLL)
+    // 1. CLOCK GENERATION (50 MHz -> 25 MHz pixel clock)
     // =========================================================================
     logic pix_clk;
-    
-    // In Quartus, you would replace this with your actual Megafunction PLL IP:
-    // pll_25mhz pll_inst (.refclk(clk), .rst(~reset_n), .outclk_0(pix_clk));
-    // For now, we will just assign it (WARNING: Simulation only, replace for physical synthesis)
-    assign pix_clk = clk; 
+
+    pll_25mhz pll_inst (
+        .refclk  (clk),
+        .rst     (~reset_n),
+        .outclk_0(pix_clk)
+    );
+
     assign vga_clk = pix_clk;
 
     // =========================================================================
@@ -128,8 +130,14 @@ module nml_gpu (
     logic [7:0]  tilerom_rdata;
 
     initial begin
-        $readmemh("sprite_rom.hex", sprite_rom);
-        $readmemh("tile_rom.hex", tile_rom);
+        $readmemh("sprite_rom.hex",    sprite_rom);
+        $readmemh("tile_rom.hex",      tile_rom);
+        // Smoke-test pre-init: palette + initial sprite table.
+        // Once the C driver on the HPS writes these regions, runtime values
+        // override the init data on the next SWAP.
+        $readmemh("palette.hex",       palette_ram);
+        $readmemh("sprite_table.hex",  sprite_table_active);
+        $readmemh("sprite_table.hex",  sprite_table_shadow);
     end
 
     always_ff @(posedge pix_clk) sprrom_rdata <= sprite_rom[sprrom_raddr];
@@ -169,12 +177,13 @@ module nml_gpu (
         .avs_address(avs_address), .avs_read(avs_read), .avs_write(avs_write),
         .avs_writedata(avs_writedata), .avs_byteenable(avs_byteenable),
         .avs_readdata(avs_readdata),
+        .vblank_in(vblank), .swap_pending_in(swap_pending), .frame_ctr_in(8'd0),
         .ctrl_enable(ctrl_enable), .ctrl_swap_req(ctrl_swap_req), .ctrl_hud_on(ctrl_hud_on),
-        .bg_scroll(bg_scroll), .vblank_in(vblank), .swap_pending_in(swap_pending),
-        .mem_waddr(mem_waddr), .sprtab_we(sprtab_we), .palette_we(palette_we), .tilemap_we(tilemap_we),
-        .mem_wdata(mem_wdata),
+        .bg_scroll(bg_scroll),
+        .sprtab_we(sprtab_we), .palette_we(palette_we), .tilemap_we(tilemap_we),
+        .mem_waddr(mem_waddr), .mem_wdata(mem_wdata),
         .sprtab_rdata_sw(sprtab_rdata_sw), .palette_rdata_sw(palette_rdata_sw), .tilemap_rdata_sw(tilemap_rdata_sw),
-        .player_pos(player_pos), .player_stats(player_stats), .score(score), .kill_count(kill_count)
+        .player_pos(player_pos), .player_stats(player_stats), .score_reg(score), .kill_count(kill_count)
     );
 
     vga_timing timing_inst (
