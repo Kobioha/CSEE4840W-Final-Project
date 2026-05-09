@@ -215,10 +215,24 @@ module nml_gpu (
         .line_sprites(line_sprites), .active_mask(active_mask)
     );
     
-    // Simple edge detector to start sprite fetch when eval finishes
+    // Latched "eval finished" flag. The original edge-detector pulsed for
+    // exactly one cycle, but sprite_fetch only samples it after ~640 cycles
+    // of CLEAR_BUF -- the pulse is long gone by then, so the fetcher gets
+    // stuck. Sustain it from the cycle eval finishes until the next
+    // eval_strobe, so sprite_fetch reliably catches the transition.
     logic [7:0] active_mask_d;
-    always_ff @(posedge pix_clk) active_mask_d <= active_mask;
-    assign eval_done = (active_mask != active_mask_d);
+    logic       eval_done_r;
+    always_ff @(posedge pix_clk or negedge reset_n) begin
+        if (!reset_n) begin
+            active_mask_d <= 8'd0;
+            eval_done_r   <= 1'b0;
+        end else begin
+            active_mask_d <= active_mask;
+            if (eval_strobe)                       eval_done_r <= 1'b0;
+            else if (active_mask != active_mask_d) eval_done_r <= 1'b1;
+        end
+    end
+    assign eval_done = eval_done_r;
 
     sprite_fetch fetch_inst (
         .pix_clk(pix_clk), .reset_n(reset_n),
