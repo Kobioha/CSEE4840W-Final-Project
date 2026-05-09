@@ -33,7 +33,10 @@ module nml_gpu (
         .outclk_0(pix_clk)
     );
 
-    assign vga_clk = pix_clk;
+    // Invert so the ADV7123 DAC samples R/G/B mid-cycle (on its rising edge,
+    // which is now pix_clk's falling edge), well after the FPGA has updated
+    // them on pix_clk's rising edge. Avoids hold-time violations at the DAC.
+    assign vga_clk = ~pix_clk;
 
     // =========================================================================
     // 2. INTERNAL WIRES
