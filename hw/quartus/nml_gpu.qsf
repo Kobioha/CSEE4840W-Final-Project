@@ -139,5 +139,6 @@ set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_CLK
 set_global_assignment -name STRATIX_DEVICE_IO_STANDARD "3.3-V LVTTL"
 set_global_assignment -name RESERVE_ALL_UNUSED_PINS "AS INPUT TRI-STATED"
 
-# Synthesis settings: keep the divide-by-2 PLL register on a global clock route.
-set_global_assignment -name AUTO_GLOBAL_CLOCK_BUFFER ON
+# The 50->25 MHz divider relies on the CLOCK_BUFFER attribute on its
+# register (see pll_25mhz.v). Quartus 21.1 will route it on a global clock
+# automatically; no project-level assignment is required.
