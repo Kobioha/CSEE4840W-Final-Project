@@ -1,0 +1,101 @@
+------------------------------------------------------------
+Timing Analyzer Summary
+------------------------------------------------------------
+
+Type  : Slow 1100mV 85C Model Setup 'nml_gpu:gpu_inst|pll_25mhz:pll_inst|clk_div'
+Slack : -5.111
+TNS   : -1409.970
+
+Type  : Slow 1100mV 85C Model Setup 'CLOCK_50'
+Slack : -3.506
+TNS   : -3.506
+
+Type  : Slow 1100mV 85C Model Hold 'nml_gpu:gpu_inst|pll_25mhz:pll_inst|clk_div'
+Slack : 0.490
+TNS   : 0.000
+
+Type  : Slow 1100mV 85C Model Hold 'CLOCK_50'
+Slack : 1.491
+TNS   : 0.000
+
+Type  : Slow 1100mV 85C Model Minimum Pulse Width 'nml_gpu:gpu_inst|pll_25mhz:pll_inst|clk_div'
+Slack : -2.174
+TNS   : -734.370
+
+Type  : Slow 1100mV 85C Model Minimum Pulse Width 'CLOCK_50'
+Slack : -0.975
+TNS   : -1.717
+
+Type  : Slow 1100mV 0C Model Setup 'nml_gpu:gpu_inst|pll_25mhz:pll_inst|clk_div'
+Slack : -5.027
+TNS   : -1361.032
+
+Type  : Slow 1100mV 0C Model Setup 'CLOCK_50'
+Slack : -3.395
+TNS   : -3.395
+
+Type  : Slow 1100mV 0C Model Hold 'nml_gpu:gpu_inst|pll_25mhz:pll_inst|clk_div'
+Slack : 0.464
+TNS   : 0.000
+
+Type  : Slow 1100mV 0C Model Hold 'CLOCK_50'
+Slack : 1.463
+TNS   : 0.000
+
+Type  : Slow 1100mV 0C Model Minimum Pulse Width 'nml_gpu:gpu_inst|pll_25mhz:pll_inst|clk_div'
+Slack : -2.174
+TNS   : -725.280
+
+Type  : Slow 1100mV 0C Model Minimum Pulse Width 'CLOCK_50'
+Slack : -1.003
+TNS   : -1.798
+
+Type  : Fast 1100mV 85C Model Setup 'CLOCK_50'
+Slack : -2.838
+TNS   : -2.838
+
+Type  : Fast 1100mV 85C Model Setup 'nml_gpu:gpu_inst|pll_25mhz:pll_inst|clk_div'
+Slack : -2.654
+TNS   : -725.393
+
+Type  : Fast 1100mV 85C Model Hold 'nml_gpu:gpu_inst|pll_25mhz:pll_inst|clk_div'
+Slack : 0.230
+TNS   : 0.000
+
+Type  : Fast 1100mV 85C Model Hold 'CLOCK_50'
+Slack : 1.497
+TNS   : 0.000
+
+Type  : Fast 1100mV 85C Model Minimum Pulse Width 'nml_gpu:gpu_inst|pll_25mhz:pll_inst|clk_div'
+Slack : -2.174
+TNS   : -507.597
+
+Type  : Fast 1100mV 85C Model Minimum Pulse Width 'CLOCK_50'
+Slack : -0.965
+TNS   : -1.745
+
+Type  : Fast 1100mV 0C Model Setup 'CLOCK_50'
+Slack : -2.446
+TNS   : -2.446
+
+Type  : Fast 1100mV 0C Model Setup 'nml_gpu:gpu_inst|pll_25mhz:pll_inst|clk_div'
+Slack : -2.373
+TNS   : -628.531
+
+Type  : Fast 1100mV 0C Model Hold 'nml_gpu:gpu_inst|pll_25mhz:pll_inst|clk_div'
+Slack : 0.219
+TNS   : 0.000
+
+Type  : Fast 1100mV 0C Model Hold 'CLOCK_50'
+Slack : 1.243
+TNS   : 0.000
+
+Type  : Fast 1100mV 0C Model Minimum Pulse Width 'nml_gpu:gpu_inst|pll_25mhz:pll_inst|clk_div'
+Slack : -2.174
+TNS   : -493.388
+
+Type  : Fast 1100mV 0C Model Minimum Pulse Width 'CLOCK_50'
+Slack : -0.990
+TNS   : -1.853
+
+------------------------------------------------------------

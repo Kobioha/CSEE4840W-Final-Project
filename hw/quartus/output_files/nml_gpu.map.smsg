@@ -1,0 +1,2 @@
+Warning (10268): Verilog HDL information at sprite_eval.sv(43): always construct contains both blocking and non-blocking assignments File: /homes/user/stud/spring26/rb3908/Documents/CSEE4840W-Final-Project/hw/sprite_eval.sv Line: 43
+Warning (10268): Verilog HDL information at sprite_fetch.sv(48): always construct contains both blocking and non-blocking assignments File: /homes/user/stud/spring26/rb3908/Documents/CSEE4840W-Final-Project/hw/sprite_fetch.sv Line: 48

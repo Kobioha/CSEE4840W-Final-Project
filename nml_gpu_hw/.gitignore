@@ -1,0 +1,11 @@
+output_files/
+soc_system/
+*.qpf
+*.qsf
+*.qws
+*.sopcinfo
+*.rpt
+*.summary
+db/
+incremental_db/
+.qsys_edit/

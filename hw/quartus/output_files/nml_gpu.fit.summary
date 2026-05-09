@@ -1,0 +1,20 @@
+Fitter Status : Successful - Sat May  9 17:19:18 2026
+Quartus Prime Version : 21.1.0 Build 842 10/21/2021 SJ Lite Edition
+Revision Name : nml_gpu
+Top-level Entity Name : de1soc_top
+Family : Cyclone V
+Device : 5CSEMA5F31C6
+Timing Models : Final
+Logic utilization (in ALMs) : 205 / 32,070 ( < 1 % )
+Total registers : 365
+Total pins : 54 / 457 ( 12 % )
+Total virtual pins : 0
+Total block memory bits : 86,144 / 4,065,280 ( 2 % )
+Total RAM Blocks : 14 / 397 ( 4 % )
+Total DSP Blocks : 0 / 87 ( 0 % )
+Total HSSI RX PCSs : 0
+Total HSSI PMA RX Deserializers : 0
+Total HSSI TX PCSs : 0
+Total HSSI PMA TX Serializers : 0
+Total PLLs : 0 / 6 ( 0 % )
+Total DLLs : 0 / 4 ( 0 % )

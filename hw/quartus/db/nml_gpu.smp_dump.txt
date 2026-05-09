@@ -1,0 +1,16 @@
+
+State Machine - |de1soc_top|nml_gpu:gpu_inst|sprite_fetch:fetch_inst|state
+Name state.WRITE_PIXEL state.WAIT_PIXEL state.READ_PIXEL state.PROCESS_SPRITE state.CLEAR_BUF state.IDLE 
+state.IDLE 0 0 0 0 0 0 
+state.CLEAR_BUF 0 0 0 0 1 1 
+state.PROCESS_SPRITE 0 0 0 1 0 1 
+state.READ_PIXEL 0 0 1 0 0 1 
+state.WAIT_PIXEL 0 1 0 0 0 1 
+state.WRITE_PIXEL 1 0 0 0 0 1 
+
+State Machine - |de1soc_top|nml_gpu:gpu_inst|sprite_eval:eval_inst|state
+Name state.DONE state.EVAL state.FETCH state.IDLE 
+state.IDLE 0 0 0 0 
+state.FETCH 0 0 1 1 
+state.EVAL 0 1 0 1 
+state.DONE 1 0 0 1 

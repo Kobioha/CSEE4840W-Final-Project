@@ -142,3 +142,6 @@ set_global_assignment -name RESERVE_ALL_UNUSED_PINS "AS INPUT TRI-STATED"
 # The 50->25 MHz divider relies on the CLOCK_BUFFER attribute on its
 # register (see pll_25mhz.v). Quartus 21.1 will route it on a global clock
 # automatically; no project-level assignment is required.
+
+set_global_assignment -name LAST_QUARTUS_VERSION "21.1.0 Lite Edition"
+set_global_assignment -name RESERVE_ALL_UNUSED_PINS_NO_OUTPUT_GND "AS INPUT TRI-STATED"
