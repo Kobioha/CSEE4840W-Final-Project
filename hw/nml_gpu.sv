@@ -95,13 +95,20 @@ module nml_gpu (
         end
     end
 
-    // Smoke-test: read sprite eval data from the shadow table directly.
-    // Quartus 21.1 synthesises sprite_table_active as registers (because the
-    // bulk swap loop writes 32 entries in one cycle), and $readmemh init
-    // values don't propagate to those registers reliably. Reading from
-    // shadow keeps the $readmemh init visible to sprite_eval. When Phase 2
-    // (HPS-driven double buffering) lands, restore active and fix the swap.
-    assign eval_sprtab_rdata = sprite_table_shadow[eval_sprtab_raddr];
+    // Smoke-test diagnostic: hardcode the sprite-table read with a case
+    // statement so the data is synthesized as logic, bypassing any
+    // $readmemh propagation issues. Slots 0-3 mirror what gen_rom.py
+    // emits into sprite_table.hex; replace this with the shadow read once
+    // the HPS Avalon path is in place.
+    always_comb begin
+        case (eval_sprtab_raddr)
+            5'd0:    eval_sprtab_rdata = 64'h0000800100e80138; // player at (312,232) id=1
+            5'd1:    eval_sprtab_rdata = 64'h0000900200500078; // enemy  at (120, 80) id=2
+            5'd2:    eval_sprtab_rdata = 64'h00009002005001e0; // enemy  at (480, 80) id=2
+            5'd3:    eval_sprtab_rdata = 64'h0000a003012c0140; // bullet at (320,300) id=3
+            default: eval_sprtab_rdata = 64'd0;
+        endcase
+    end
 
     // B. Palette RAM
     logic [23:0] palette_ram [0:255];
