@@ -208,29 +208,25 @@ module nml_gpu (
     // Strobe eval logic slightly after HBLANK starts to ensure next line is ready
     assign eval_strobe = (x == 642);
 
+    logic eval_done_pulse;
     sprite_eval eval_inst (
         .pix_clk(pix_clk), .reset_n(reset_n),
         .next_scanline(y + 10'd1), .eval_strobe(eval_strobe),
         .sprtab_raddr(eval_sprtab_raddr), .sprtab_rdata(eval_sprtab_rdata),
-        .line_sprites(line_sprites), .active_mask(active_mask)
+        .line_sprites(line_sprites), .active_mask(active_mask),
+        .eval_done(eval_done_pulse)
     );
-    
-    // Latched "eval finished" flag. The original edge-detector pulsed for
-    // exactly one cycle, but sprite_fetch only samples it after ~640 cycles
-    // of CLEAR_BUF -- the pulse is long gone by then, so the fetcher gets
-    // stuck. Sustain it from the cycle eval finishes until the next
-    // eval_strobe, so sprite_fetch reliably catches the transition.
-    logic [7:0] active_mask_d;
-    logic       eval_done_r;
+
+    // Sustain the one-cycle DONE pulse from sprite_eval until the next
+    // eval_strobe, so sprite_fetch reliably observes "eval finished" no
+    // matter when in CLEAR_BUF it samples the signal. The previous version
+    // edge-detected on active_mask transitions, which silently failed for
+    // the 15-of-16 scanlines where the same set of sprites stays active.
+    logic eval_done_r;
     always_ff @(posedge pix_clk or negedge reset_n) begin
-        if (!reset_n) begin
-            active_mask_d <= 8'd0;
-            eval_done_r   <= 1'b0;
-        end else begin
-            active_mask_d <= active_mask;
-            if (eval_strobe)                       eval_done_r <= 1'b0;
-            else if (active_mask != active_mask_d) eval_done_r <= 1'b1;
-        end
+        if (!reset_n)             eval_done_r <= 1'b0;
+        else if (eval_strobe)     eval_done_r <= 1'b0;
+        else if (eval_done_pulse) eval_done_r <= 1'b1;
     end
     assign eval_done = eval_done_r;
 

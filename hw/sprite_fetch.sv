@@ -18,7 +18,7 @@ module sprite_fetch (
     output logic        linebuf_we
 );
 
-    typedef enum logic [2:0] {IDLE, CLEAR_BUF, PROCESS_SPRITE, READ_PIXEL, WRITE_PIXEL} state_t;
+    typedef enum logic [2:0] {IDLE, CLEAR_BUF, PROCESS_SPRITE, READ_PIXEL, WAIT_PIXEL, WRITE_PIXEL} state_t;
     state_t state;
 
     logic [3:0] sprite_idx; // 0 to 7 (iterating backwards from 7 down to 0)
@@ -105,10 +105,17 @@ module sprite_fetch (
                         // Address = (sprite_id * 256) + (v * 16) + u
                         logic [3:0] actual_u;
                         actual_u = spr_hflip ? (4'd15 - pixel_u[3:0]) : pixel_u[3:0];
-                        
+
                         sprrom_raddr <= ({spr_id, 8'd0}) + ({pixel_v, 4'd0}) + actual_u;
-                        state <= WRITE_PIXEL; // Takes 1 cycle for ROM to respond
+                        // sprrom_raddr update + ROM read register together cost 2 cycles,
+                        // so insert a WAIT_PIXEL bubble before sampling sprrom_rdata.
+                        state <= WAIT_PIXEL;
                     end
+                end
+
+                WAIT_PIXEL: begin
+                    // ROM read in flight; sprrom_rdata becomes valid next cycle.
+                    state <= WRITE_PIXEL;
                 end
 
                 WRITE_PIXEL: begin
@@ -118,7 +125,7 @@ module sprite_fetch (
                         linebuf_wdata <= sprrom_rdata;
                         linebuf_we    <= 1'b1;
                     end
-                    
+
                     pixel_u <= pixel_u + 5'd1;
                     state <= READ_PIXEL;
                 end

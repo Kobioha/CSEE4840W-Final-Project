@@ -9,7 +9,9 @@ module sprite_eval (
     
     // Output: up to 8 active sprites for the next line
     output logic [63:0] line_sprites [0:7],
-    output logic [7:0]  active_mask
+    output logic [7:0]  active_mask,
+    // High for one cycle when DONE finishes latching the sorted list.
+    output logic        eval_done
 );
 
     typedef enum logic [1:0] {IDLE, FETCH, EVAL, DONE} state_t;
@@ -43,11 +45,13 @@ module sprite_eval (
             state <= IDLE;
             sprite_idx <= 6'd0;
             active_mask <= 8'd0;
+            eval_done <= 1'b0;
             for (int i = 0; i < 8; i++) begin
                 top_valid[i] <= 1'b0;
                 line_sprites[i] <= 64'd0;
             end
         end else begin
+            eval_done <= 1'b0;
             case (state)
                 IDLE: begin
                     if (eval_strobe) begin
@@ -104,7 +108,8 @@ module sprite_eval (
                         line_sprites[i] <= top_sprites[i];
                         active_mask[i]  <= top_valid[i];
                     end
-                    state <= IDLE;
+                    eval_done <= 1'b1;
+                    state    <= IDLE;
                 end
             endcase
         end
