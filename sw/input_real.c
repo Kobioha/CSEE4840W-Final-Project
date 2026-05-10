@@ -5,8 +5,8 @@
  * them at link time.
  *
  * Why evdev and not joydev: the DE1-SoC class kernel (4.19) is built
- * without joydev (no /lib/modules/*, no js0 device), but evdev is built-in
- * and event0 enumerates the moment the gamepad is plugged in.
+ * without joydev (modules.dep.bin missing, no js0 device), but evdev is
+ * built-in and event0 enumerates the moment the gamepad is plugged in.
  *
  * DragonRise default mapping (hid-generic, SNES-style adapter):
  *   B button       -> BTN_THUMB   (0x121)  -> INPUT_FIRE
