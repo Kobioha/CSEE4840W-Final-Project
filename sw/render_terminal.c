@@ -6,9 +6,14 @@
 
 #define MAX_SPRITES 32
 
-#define SPRITE_PLAYER 1
-#define SPRITE_ENEMY  2
-#define SPRITE_BULLET 3
+#define SPRITE_PLAYER         1
+#define SPRITE_ENEMY_ARMED    2
+#define SPRITE_BULLET         3
+#define SPRITE_ENEMY_UNARMED  4
+#define SPRITE_MORTAR         5
+#define SPRITE_WIRE           6
+#define SPRITE_GAS            7
+#define SPRITE_ARTILLERY      8
 
 typedef struct {
     int active;
@@ -16,14 +21,24 @@ typedef struct {
     int sprite_id;
 } mock_sprite_t;
 
-static int entity_to_sprite_id(ent_kind_t kind) {
-    switch (kind) {
+static int autoatk_sprite_id(int payload) {
+    switch (payload) {
+        case AA_MORTAR:    return SPRITE_MORTAR;
+        case AA_WIRE:      return SPRITE_WIRE;
+        case AA_GAS:       return SPRITE_GAS;
+        case AA_ARTILLERY: return SPRITE_ARTILLERY;
+        default:           return SPRITE_BULLET;
+    }
+}
+
+static int entity_to_sprite_id(const entity_t *e) {
+    switch (e->kind) {
         case ENT_PLAYER:        return SPRITE_PLAYER;
-        case ENT_ENEMY_ARMED:
-        case ENT_ENEMY_UNARMED: return SPRITE_ENEMY;
-        case ENT_BULLET:
+        case ENT_ENEMY_ARMED:   return SPRITE_ENEMY_ARMED;
+        case ENT_ENEMY_UNARMED: return SPRITE_ENEMY_UNARMED;
+        case ENT_BULLET:        return SPRITE_BULLET;
         case ENT_AUTO_PROJ:
-        case ENT_HAZARD:        return SPRITE_BULLET;
+        case ENT_HAZARD:        return autoatk_sprite_id(e->payload);
         default:                return 0;
     }
 }
@@ -65,7 +80,7 @@ void render_frame(const game_t *g) {
         sprites[slot].active = 1;
         sprites[slot].x = e->x;
         sprites[slot].y = e->y;
-        sprites[slot].sprite_id = entity_to_sprite_id(e->kind);
+        sprites[slot].sprite_id = entity_to_sprite_id(e);
         slot++;
     }
 

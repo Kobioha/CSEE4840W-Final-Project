@@ -1,21 +1,35 @@
 #!/usr/bin/env python3
 """
-gen_rom.py -- generate placeholder sprite_rom.hex and tile_rom.hex
+gen_rom.py -- generate sprite_rom.hex, tile_rom.hex, palette.hex, sprite_table.hex
 
 Format: $readmemh-compatible. One byte per line, lowercase hex, no addresses.
 
 Sprite ROM: 64 sprites x 256 bytes (16x16, palette indices). Sprite 0 reserved
-            transparent. Sprites 1-3 are the placeholder player/enemy/bullet.
+            transparent. Sprites 1-8 are the live game art:
+              1 = player           (green bordered)
+              2 = armed enemy      (red bordered + white cross)
+              3 = player bullet    (small yellow block)
+              4 = unarmed enemy    (solid pink, no border)
+              5 = mortar shell     (orange diamond)
+              6 = barbed wire      (gray X)
+              7 = mustard gas      (large green-yellow circle)
+              8 = artillery flash  (white plus)
 Tile ROM:   64 tiles x 64 bytes (8x8, palette indices). Tile 0 = background,
             Tile 1 = background with accent dots.
 
-Palette indices used here are referenced from the SW driver:
+Palette indices used here are mirrored in sw/main.c init_palette_runtime():
     0x00 = transparent (sprite ROM only)
-    0x10 = player color  (e.g. green)
-    0x11 = enemy color   (e.g. red)
-    0x12 = bullet color  (e.g. yellow)
+    0x10 = player color (green)
+    0x11 = armed enemy red
+    0x12 = bullet yellow
+    0x13 = unarmed enemy pink
+    0x14 = mortar orange
+    0x15 = barbed wire gray
+    0x16 = mustard gas yellow-green
+    0x17 = artillery bright white-yellow
     0x20 = tile background
     0x21 = tile accent
+    0xFF = white (sprite borders)
 
 Run: ``python3 gen_rom.py`` from the hw/ directory.
 """
@@ -27,39 +41,98 @@ HERE = Path(__file__).resolve().parent
 SPRITE_ROM_BYTES = 64 * 256          # 16384
 TILE_ROM_BYTES   = 64 * 64           #  4096
 
-PAL_TRANSPARENT = 0x00
-PAL_PLAYER      = 0x10
-PAL_ENEMY       = 0x11
-PAL_BULLET      = 0x12
-PAL_BG          = 0x20
-PAL_BG_ACCENT   = 0x21
+PAL_TRANSPARENT  = 0x00
+PAL_PLAYER       = 0x10
+PAL_ENEMY_ARMED  = 0x11
+PAL_BULLET       = 0x12
+PAL_ENEMY_UNARMD = 0x13
+PAL_MORTAR       = 0x14
+PAL_WIRE         = 0x15
+PAL_GAS          = 0x16
+PAL_ARTILLERY    = 0x17
+PAL_BG           = 0x20
+PAL_BG_ACCENT    = 0x21
+PAL_BORDER       = 0xFF
 
 
 def make_sprite_rom() -> bytearray:
     rom = bytearray(SPRITE_ROM_BYTES)  # zero-init = all transparent
 
+    def put(slot: int, u: int, v: int, pal: int) -> None:
+        rom[slot * 256 + v * 16 + u] = pal
+
     def fill_solid(slot: int, pal: int) -> None:
         for v in range(16):
             for u in range(16):
-                rom[slot * 256 + v * 16 + u] = pal
+                put(slot, u, v, pal)
 
     def fill_bordered(slot: int, fill: int, border: int) -> None:
         for v in range(16):
             for u in range(16):
                 edge = (u == 0 or u == 15 or v == 0 or v == 15)
-                rom[slot * 256 + v * 16 + u] = border if edge else fill
+                put(slot, u, v, border if edge else fill)
 
     def fill_centered(slot: int, pal: int, half: int) -> None:
         # half=2 -> 4x4 centered block, etc.
         for v in range(16):
             for u in range(16):
-                in_center = abs(u - 8) < half and abs(v - 8) < half
-                rom[slot * 256 + v * 16 + u] = pal if in_center else 0
+                if abs(u - 8) < half and abs(v - 8) < half:
+                    put(slot, u, v, pal)
+
+    def fill_diamond(slot: int, pal: int, radius: int) -> None:
+        # Manhattan-distance diamond centered at (8, 8). radius=7 fills 15px wide.
+        for v in range(16):
+            for u in range(16):
+                if abs(u - 8) + abs(v - 8) <= radius:
+                    put(slot, u, v, pal)
+
+    def fill_circle(slot: int, pal: int, radius: int) -> None:
+        # Euclidean disk centered at (8, 8).
+        r2 = radius * radius
+        for v in range(16):
+            for u in range(16):
+                dx = u - 8
+                dy = v - 8
+                if dx * dx + dy * dy <= r2:
+                    put(slot, u, v, pal)
+
+    def fill_x(slot: int, pal: int, thickness: int) -> None:
+        # Two diagonals from corner to corner; thickness in pixels (1, 2, ...).
+        for v in range(16):
+            for u in range(16):
+                if abs(u - v) < thickness or abs(u + v - 15) < thickness:
+                    put(slot, u, v, pal)
+
+    def fill_plus(slot: int, pal: int, arm_half: int, thickness: int) -> None:
+        # A '+' centered at (8, 8). arm_half = arm length each side from center,
+        # thickness = bar width.
+        cx, cy = 7, 7   # so the bars span an even pair around the visual center
+        for v in range(16):
+            for u in range(16):
+                in_h = (abs(v - cy) < thickness and abs(u - cx) <= arm_half)
+                in_v = (abs(u - cx) < thickness and abs(v - cy) <= arm_half)
+                if in_h or in_v:
+                    put(slot, u, v, pal)
+
+    def overlay_cross(slot: int, pal: int) -> None:
+        # Small '+' marker centered, used to badge armed enemies.
+        for d in range(-2, 3):
+            put(slot, 7 + d, 7, pal)
+            put(slot, 7, 7 + d, pal)
+            put(slot, 8 + d, 8, pal)
+            put(slot, 8, 8 + d, pal)
 
     # slot 0: transparent (already)
-    fill_bordered(1, PAL_PLAYER, 0xFF)   # player: green with magenta border (0xFF=white-ish)
-    fill_bordered(2, PAL_ENEMY,  0xFF)   # enemy:  red with border
-    fill_centered(3, PAL_BULLET, 2)      # bullet: 4x4 centered block
+    fill_bordered(1, PAL_PLAYER,       PAL_BORDER)   # player
+    fill_bordered(2, PAL_ENEMY_ARMED,  PAL_BORDER)   # armed enemy
+    overlay_cross(2, PAL_BORDER)                     # cross badge identifies "armed"
+    fill_centered(3, PAL_BULLET, 2)                  # bullet: 4x4 centered
+    fill_solid   (4, PAL_ENEMY_UNARMD)               # unarmed: solid pink
+    fill_diamond (5, PAL_MORTAR, 7)                  # mortar shell: diamond
+    fill_x       (6, PAL_WIRE, 2)                    # barbed wire: thick X
+    fill_circle  (7, PAL_GAS, 7)                     # mustard gas: large disk
+    fill_plus    (8, PAL_ARTILLERY, 7, 2)            # artillery flash: thick '+'
+
     return rom
 
 
@@ -94,14 +167,21 @@ SPRITE_TABLE_DEPTH = 32
 
 
 def make_palette() -> list[int]:
-    """24-bit RGB888 entries; default black, key colors set explicitly."""
+    """24-bit RGB888 entries; default black, key colors set explicitly. Must
+       stay in sync with sw/main.c init_palette_runtime() since that overrides
+       this table once the C driver opens the device."""
     pal = [0] * PALETTE_DEPTH
-    pal[PAL_PLAYER]    = 0x00FF00      # green
-    pal[PAL_ENEMY]     = 0xFF0000      # red
-    pal[PAL_BULLET]    = 0xFFFF00      # yellow
-    pal[PAL_BG]        = 0x404040      # dark gray
-    pal[PAL_BG_ACCENT] = 0x606060      # lighter gray
-    pal[0xFF]          = 0xFFFFFF      # white (sprite borders)
+    pal[PAL_PLAYER]       = 0x00FF00   # green
+    pal[PAL_ENEMY_ARMED]  = 0xFF0000   # red
+    pal[PAL_BULLET]       = 0xFFFF00   # yellow
+    pal[PAL_ENEMY_UNARMD] = 0xFF80A0   # pink
+    pal[PAL_MORTAR]       = 0xFF8000   # orange
+    pal[PAL_WIRE]         = 0x808080   # gray
+    pal[PAL_GAS]          = 0xC0E000   # yellow-green
+    pal[PAL_ARTILLERY]    = 0xFFFFE0   # bright white
+    pal[PAL_BG]           = 0x404040   # dark gray
+    pal[PAL_BG_ACCENT]    = 0x606060   # lighter gray
+    pal[PAL_BORDER]       = 0xFFFFFF   # white (sprite borders)
     return pal
 
 

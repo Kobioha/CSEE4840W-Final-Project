@@ -6,29 +6,39 @@
  * filled in entity-array order with enemies and bullets. Unused slots are
  * hidden via nml_hide_sprite() so leftover state from prior frames is gone.
  *
- * Sprite-id assignments come from the placeholder sprite_rom.hex generated
- * by hw/gen_rom.py. When real art lands, only the IDs need to change.
+ * Sprite-id assignments must match the layout in hw/gen_rom.py.
  */
 
 #include "render.h"
 #include "nml_gpu.h"
 
-#define SPRITE_ID_PLAYER  1
-#define SPRITE_ID_ENEMY   2
-#define SPRITE_ID_BULLET  3
+#define SPRITE_ID_PLAYER         1
+#define SPRITE_ID_ENEMY_ARMED    2
+#define SPRITE_ID_BULLET         3
+#define SPRITE_ID_ENEMY_UNARMED  4
+#define SPRITE_ID_MORTAR         5
+#define SPRITE_ID_WIRE           6
+#define SPRITE_ID_GAS            7
+#define SPRITE_ID_ARTILLERY      8
 
-static uint8_t entity_to_sprite_id(ent_kind_t kind) {
-    switch (kind) {
+static uint8_t autoatk_sprite_id(int payload) {
+    switch (payload) {
+        case AA_MORTAR:    return SPRITE_ID_MORTAR;
+        case AA_WIRE:      return SPRITE_ID_WIRE;
+        case AA_GAS:       return SPRITE_ID_GAS;
+        case AA_ARTILLERY: return SPRITE_ID_ARTILLERY;
+        default:           return SPRITE_ID_BULLET;
+    }
+}
+
+static uint8_t entity_to_sprite_id(const entity_t *e) {
+    switch (e->kind) {
         case ENT_PLAYER:        return SPRITE_ID_PLAYER;
-        /* Armed and unarmed share the same red square until gen_rom.py
-           emits a second enemy sprite. Logic still tracks them separately. */
-        case ENT_ENEMY_ARMED:
-        case ENT_ENEMY_UNARMED: return SPRITE_ID_ENEMY;
+        case ENT_ENEMY_ARMED:   return SPRITE_ID_ENEMY_ARMED;
+        case ENT_ENEMY_UNARMED: return SPRITE_ID_ENEMY_UNARMED;
         case ENT_BULLET:        return SPRITE_ID_BULLET;
-        /* Auto-projectiles and hazards reuse the bullet sprite (yellow square)
-           until distinct art is added in the gen_rom.py batch. */
         case ENT_AUTO_PROJ:
-        case ENT_HAZARD:        return SPRITE_ID_BULLET;
+        case ENT_HAZARD:        return autoatk_sprite_id(e->payload);
         default:                return 0;
     }
 }
@@ -155,7 +165,7 @@ void render_frame(const game_t *g) {
         nml_sprite_t s = {
             .x           = (int16_t)e->x,
             .y           = (int16_t)e->y,
-            .sprite_id   = entity_to_sprite_id(e->kind),
+            .sprite_id   = entity_to_sprite_id(e),
             .flags       = NML_FLAGS(/*prio=*/(e->kind == ENT_BULLET ? 2 : 1),
                                      /*hflip=*/0, /*vflip=*/0),
             .palette_off = 0,

@@ -133,13 +133,19 @@ static void track_wave_transitions(const game_t *g, wave_tracker_t *t) {
 static void init_palette_runtime(void) {
     /* Mirrors hw/gen_rom.py palette indices. We rewrite them here so the SW
      * remains the authoritative source of palette data once the C driver is
-     * in charge -- the FPGA $readmemh init only matters before this runs. */
-    nml_write_palette(0x10, 0x00, 0xFF, 0x00); /* player: green        */
-    nml_write_palette(0x11, 0xFF, 0x00, 0x00); /* enemy:  red          */
-    nml_write_palette(0x12, 0xFF, 0xFF, 0x00); /* bullet: yellow       */
-    nml_write_palette(0x20, 0x40, 0x40, 0x40); /* tile bg:  dark gray  */
-    nml_write_palette(0x21, 0x60, 0x60, 0x60); /* tile bg accent       */
-    nml_write_palette(0xFF, 0xFF, 0xFF, 0xFF); /* sprite border        */
+     * in charge -- the FPGA $readmemh init only matters before this runs.
+     * Keep this table in sync with make_palette() in gen_rom.py. */
+    nml_write_palette(0x10, 0x00, 0xFF, 0x00); /* player: green                */
+    nml_write_palette(0x11, 0xFF, 0x00, 0x00); /* armed enemy: red             */
+    nml_write_palette(0x12, 0xFF, 0xFF, 0x00); /* bullet: yellow               */
+    nml_write_palette(0x13, 0xFF, 0x80, 0xA0); /* unarmed enemy: pink          */
+    nml_write_palette(0x14, 0xFF, 0x80, 0x00); /* mortar: orange               */
+    nml_write_palette(0x15, 0x80, 0x80, 0x80); /* barbed wire: gray            */
+    nml_write_palette(0x16, 0xC0, 0xE0, 0x00); /* mustard gas: yellow-green    */
+    nml_write_palette(0x17, 0xFF, 0xFF, 0xE0); /* artillery flash: bright white*/
+    nml_write_palette(0x20, 0x40, 0x40, 0x40); /* tile bg:  dark gray          */
+    nml_write_palette(0x21, 0x60, 0x60, 0x60); /* tile bg accent               */
+    nml_write_palette(0xFF, 0xFF, 0xFF, 0xFF); /* sprite border                */
 }
 #endif
 
