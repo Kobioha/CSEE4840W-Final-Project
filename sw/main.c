@@ -69,6 +69,18 @@ int main(void) {
 
         uint16_t input = input_read(game.frame);
         game_tick(&game, input);
+
+        /* One-shot kill breakdown on the PLAYING -> GAMEOVER transition. */
+        if (game.prev_state == STATE_PLAYING && game.state == STATE_GAMEOVER) {
+            printf("\n=== GAME OVER ===\n");
+            printf("  score       : %d\n", game.score);
+            printf("  wave reached: %d\n", game.wave_index + 1);
+            printf("  kills armed : %d\n", game.kills_armed);
+            printf("  kills unarmd: %d\n", game.kills_unarmed);
+            printf("  press START to restart\n");
+            printf("=================\n\n");
+        }
+
         render_frame(&game);
 
 #ifndef NML_TERMINAL_BUILD

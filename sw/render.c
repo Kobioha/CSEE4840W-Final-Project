@@ -19,10 +19,13 @@
 
 static uint8_t entity_to_sprite_id(ent_kind_t kind) {
     switch (kind) {
-        case ENT_PLAYER: return SPRITE_ID_PLAYER;
-        case ENT_ENEMY:  return SPRITE_ID_ENEMY;
-        case ENT_BULLET: return SPRITE_ID_BULLET;
-        default:         return 0;
+        case ENT_PLAYER:        return SPRITE_ID_PLAYER;
+        /* Armed and unarmed share the same red square until gen_rom.py
+           emits a second enemy sprite. Logic still tracks them separately. */
+        case ENT_ENEMY_ARMED:
+        case ENT_ENEMY_UNARMED: return SPRITE_ID_ENEMY;
+        case ENT_BULLET:        return SPRITE_ID_BULLET;
+        default:                return 0;
     }
 }
 

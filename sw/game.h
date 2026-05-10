@@ -16,12 +16,14 @@
 #define INPUT_FIRE   (1 << 4)
 #define INPUT_START  (1 << 5)
 #define INPUT_SELECT (1 << 6)
-/*Struct which defines the types of entities that can be
- found in the game: player, enemy, and bullet*/
+/*Entity kinds. ENT_ENEMY_ARMED and ENT_ENEMY_UNARMED replaced the old
+ generic ENT_ENEMY in batch 2; armed enemies have higher HP and are worth
+ more score, unarmed are single-shot fodder.*/
 typedef enum {
   ENT_NONE = 0,
   ENT_PLAYER,
-  ENT_ENEMY,
+  ENT_ENEMY_ARMED,
+  ENT_ENEMY_UNARMED,
   ENT_BULLET
 } ent_kind_t;
 
@@ -50,6 +52,16 @@ typedef struct{
   int player_hp;
   game_state_t state;
   uint16_t prev_input;
+
+  /* Wave system (batch 2) */
+  int wave_index;                 /* 0-based; clamped to last wave */
+  int wave_enemies_spawned;       /* enemies emitted this wave so far */
+  int wave_armed_remaining;       /* armed enemies still to spawn this wave */
+  int wave_spawn_cooldown;        /* frames until next spawn */
+  int kills_armed;
+  int kills_unarmed;
+  int fire_cooldown;              /* frames until player can fire again */
+  game_state_t prev_state;        /* for one-shot game-over transition events */
 } game_t;
 
 void game_init(game_t *g);

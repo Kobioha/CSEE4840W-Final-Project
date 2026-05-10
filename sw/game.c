@@ -1,5 +1,13 @@
 #include "game.h"
+#include "wave.h"
 #include <stdlib.h>
+
+/* Score weights -- tune here. */
+#define SCORE_KILL_ARMED    200
+#define SCORE_KILL_UNARMED  50
+
+/* Player fire cooldown in frames. 60 fps -> 5 frames == 12 shots/sec. */
+#define FIRE_COOLDOWN_FRAMES 5
 
 /*Function that spawns the entities on the map at coordinates x and y according to their kind*/
 
@@ -19,6 +27,10 @@ static int spawn_entity(game_t *g, ent_kind_t kind, int x, int y){
   return -1;
 }
 
+static int is_enemy(const entity_t *e) {
+    return e->kind == ENT_ENEMY_ARMED || e->kind == ENT_ENEMY_UNARMED;
+}
+
 /*Initializes the game at frame 0 and with the player having 100 hp*/
 void game_init(game_t *g) {
     for (int i = 0; i < MAX_ENTITIES; i++) {
@@ -29,9 +41,13 @@ void game_init(game_t *g) {
     g->score = 0;
     g->player_hp = 100;
     g->state = STATE_PLAYING;
+    g->prev_state = STATE_PLAYING;
     g->prev_input = 0;
+    g->fire_cooldown = 0;
 
     g->player_i = spawn_entity(g, ENT_PLAYER, SCREEN_W / 2, SCREEN_H - 60);
+
+    wave_system_init(g);
 }
 /*Updates the player's position and actions according to the received input*/
 
@@ -49,28 +65,25 @@ static void update_player(game_t *g, uint16_t input) {
     if (p->y < HUD_H) p->y = HUD_H;
     if (p->y > SCREEN_H - 16) p->y = SCREEN_H - 16;
 
-    if (input & INPUT_FIRE) {
+    if (g->fire_cooldown > 0) g->fire_cooldown--;
+
+    if ((input & INPUT_FIRE) && g->fire_cooldown == 0) {
         int b = spawn_entity(g, ENT_BULLET, p->x + 8, p->y - 8);
         if (b >= 0) {
             g->ents[b].vy = -8;
+            g->fire_cooldown = FIRE_COOLDOWN_FRAMES;
         }
     }
 }
 
-/*Spawns enemies on the screen*/
-static void spawn_enemies(game_t *g) {
-    if (g->frame % 60 == 0) {
-        int x = rand() % (SCREEN_W - 16);
-        spawn_entity(g, ENT_ENEMY, x, HUD_H);
-    }
-}
-/*Updates position of the enemies*/
+/*Updates position of the enemies. Both armed and unarmed share the same chase
+  behavior; their HP and score values are what differ.*/
 static void update_enemies(game_t *g) {
     entity_t *p = &g->ents[g->player_i];
 
     for (int i = 0; i < MAX_ENTITIES; i++) {
         entity_t *e = &g->ents[i];
-        if (!e->active || e->kind != ENT_ENEMY) continue;
+        if (!e->active || !is_enemy(e)) continue;
 
         if (e->x < p->x) e->x++;
         if (e->x > p->x) e->x--;
@@ -105,29 +118,42 @@ static int touching(entity_t *a, entity_t *b) {
            a->y + 16 > b->y;
 }
 
-/*Handles collision amongst entities e.g.: player's hp are reduced if they are hit!*/
+/*Handles collision amongst entities. Armed enemies absorb a bullet per HP;
+  unarmed are one-shot kills. Score and kill counters track the two classes
+  separately so the end screen can show the breakdown.*/
 static void handle_collisions(game_t *g) {
     entity_t *p = &g->ents[g->player_i];
 
     for (int i = 0; i < MAX_ENTITIES; i++) {
         entity_t *e = &g->ents[i];
-        if (!e->active || e->kind != ENT_ENEMY) continue;
+        if (!e->active || !is_enemy(e)) continue;
 
         if (touching(p, e)) {
             e->active = 0;
             g->player_hp -= 10;
+            continue;
         }
 
         for (int j = 0; j < MAX_ENTITIES; j++) {
             entity_t *b = &g->ents[j];
             if (!b->active || b->kind != ENT_BULLET) continue;
+            if (!touching(b, e)) continue;
 
-            if (touching(b, e)) {
-                b->active = 0;
+            /* Bullet always consumed on contact; armed enemies take multiple
+               hits, unarmed die immediately. */
+            b->active = 0;
+            e->hp--;
+            if (e->hp <= 0) {
+                if (e->kind == ENT_ENEMY_ARMED) {
+                    g->score += SCORE_KILL_ARMED;
+                    g->kills_armed++;
+                } else {
+                    g->score += SCORE_KILL_UNARMED;
+                    g->kills_unarmed++;
+                }
                 e->active = 0;
-                g->score += 100;
-                break;
             }
+            break;
         }
     }
 }
@@ -138,6 +164,7 @@ static int input_pressed(const game_t *g, uint16_t input, uint16_t bit) {
 }
 
 void game_tick(game_t *g, uint16_t input) {
+    g->prev_state = g->state;
     g->frame++;
 
     if (g->state == STATE_GAMEOVER) {
@@ -153,10 +180,17 @@ void game_tick(game_t *g, uint16_t input) {
     }
 
     update_player(g, input);
-    spawn_enemies(g);
+    wave_tick(g);
     update_enemies(g);
     update_bullets(g);
     handle_collisions(g);
+
+    /* Advance to the next wave once the current one is fully spawned and
+       cleared. wave_advance() clamps at the last wave so the spawn pattern
+       continues looping past the designed end of the table. */
+    if (wave_complete(g)) {
+        wave_advance(g);
+    }
 
     if (g->player_hp <= 0) {
         g->state = STATE_GAMEOVER;

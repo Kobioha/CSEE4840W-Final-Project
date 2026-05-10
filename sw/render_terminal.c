@@ -18,10 +18,11 @@ typedef struct {
 
 static int entity_to_sprite_id(ent_kind_t kind) {
     switch (kind) {
-        case ENT_PLAYER: return SPRITE_PLAYER;
-        case ENT_ENEMY:  return SPRITE_ENEMY;
-        case ENT_BULLET: return SPRITE_BULLET;
-        default:         return 0;
+        case ENT_PLAYER:        return SPRITE_PLAYER;
+        case ENT_ENEMY_ARMED:
+        case ENT_ENEMY_UNARMED: return SPRITE_ENEMY;
+        case ENT_BULLET:        return SPRITE_BULLET;
+        default:                return 0;
     }
 }
 
@@ -66,8 +67,9 @@ void render_frame(const game_t *g) {
         slot++;
     }
 
-    printf("frame=%d hp=%d score=%d sprite_count=%d\n",
-           g->frame, g->player_hp, g->score, slot);
+    printf("frame=%d hp=%d score=%d wave=%d kills(A/U)=%d/%d sprite_count=%d\n",
+           g->frame, g->player_hp, g->score,
+           g->wave_index + 1, g->kills_armed, g->kills_unarmed, slot);
 
     for (int i = 0; i < MAX_SPRITES; i++) {
         if (!sprites[i].active) {
