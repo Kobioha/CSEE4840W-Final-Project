@@ -1,24 +1,27 @@
 /*
- * input_real.c -- Linux joydev (/dev/input/js0) reader for the SNES-style
- * USB gamepad (KIWITATA Classic SNES). Implements the same input_read(frame)
- * signature as input_fake.c so main.c can swap between them at link time.
+ * input_real.c -- Linux evdev (/dev/input/event0) reader for the DragonRise
+ * generic SNES-style USB gamepad (VID 0079:0011). Implements the same
+ * input_read(frame) signature as input_fake.c so main.c can swap between
+ * them at link time.
  *
- * On first call we open /dev/input/js0 non-blocking; later calls drain
- * pending events into a sticky bitmask. Failures (no controller, no
- * permission) are warned once and then silently produce zero -- the game
- * still runs, the player just doesn't move.
+ * Why evdev and not joydev: the DE1-SoC class kernel (4.19) is built
+ * without joydev (no /lib/modules/*, no js0 device), but evdev is built-in
+ * and event0 enumerates the moment the gamepad is plugged in.
  *
- * Button index assumptions (KIWITATA SNES via hid-generic on Linux 4.19):
- *   0  -> B        -> INPUT_FIRE
- *   8  -> Select   -> INPUT_SELECT
- *   9  -> Start    -> INPUT_START
+ * DragonRise default mapping (hid-generic, SNES-style adapter):
+ *   B button       -> BTN_THUMB   (0x121)  -> INPUT_FIRE
+ *   Start          -> BTN_BASE4   (0x129)  -> INPUT_START
+ *   Select         -> BTN_BASE3   (0x128)  -> INPUT_SELECT
+ *   D-pad X        -> ABS_X       (0x00)   -> INPUT_LEFT / INPUT_RIGHT
+ *   D-pad Y        -> ABS_Y       (0x01)   -> INPUT_UP   / INPUT_DOWN
  *
- * Axes (D-pad usually appears as an axis pair on SNES adapters):
- *   0  -> X        -> INPUT_LEFT / INPUT_RIGHT (deadzone DEADZONE)
- *   1  -> Y        -> INPUT_UP   / INPUT_DOWN
+ * If the mapping differs on this controller, set NML_INPUT_DEBUG=1 in the
+ * environment and the first few events get dumped to stderr -- adjust the
+ * BTN_CODE_* / ABS_CODE_* constants below and rebuild.
  *
- * If the real mapping differs, fix the constants below. Use the diagnostic
- * `od -tx1 -w8 /dev/input/js0` to confirm button indices before changing.
+ * Axis ranges are queried via EVIOCGABS at open time, so the deadzone math
+ * works regardless of whether DragonRise reports 0..255, -1..1, or signed
+ * 16-bit values.
  */
 
 #include "input.h"
@@ -26,77 +29,132 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <linux/joystick.h>
+#include <linux/input.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <sys/ioctl.h>
 #include <sys/types.h>
 #include <unistd.h>
 
-#define JS_DEVICE      "/dev/input/js0"
-#define DEADZONE       8000     /* ~24% of INT16_MAX */
+#define EV_DEVICE        "/dev/input/event0"
 
-#define JS_FD_UNINIT   (-1)
-#define JS_FD_DISABLED (-2)     /* sentinel: open failed, don't retry */
+#define FD_UNINIT        (-1)
+#define FD_DISABLED      (-2)
 
-static int      js_fd        = JS_FD_UNINIT;
-static uint16_t button_state = 0;
-static int      axis_x       = 0;
-static int      axis_y       = 0;
+/* Button codes -- edit these if the controller uses different codes. */
+#define BTN_CODE_FIRE    BTN_THUMB     /* 0x121 -- "B" */
+#define BTN_CODE_START   BTN_BASE4     /* 0x129 -- Start */
+#define BTN_CODE_SELECT  BTN_BASE3     /* 0x128 -- Select */
 
-static void open_device(void) {
-    js_fd = open(JS_DEVICE, O_RDONLY | O_NONBLOCK);
-    if (js_fd < 0) {
-        fprintf(stderr,
-                "input_real: open(%s) failed: %s -- "
-                "no gamepad input until fixed.\n",
-                JS_DEVICE, strerror(errno));
-        js_fd = JS_FD_DISABLED;
+/* D-pad axis codes -- edit if it's reported on ABS_HAT0X/HAT0Y instead. */
+#define ABS_CODE_X       ABS_X
+#define ABS_CODE_Y       ABS_Y
+
+static int      ev_fd          = FD_UNINIT;
+static uint16_t button_state   = 0;
+static int      axis_x_value   = 0;
+static int      axis_x_min     = -1;
+static int      axis_x_max     =  1;
+static int      axis_x_center  =  0;
+static int      axis_y_value   = 0;
+static int      axis_y_min     = -1;
+static int      axis_y_max     =  1;
+static int      axis_y_center  =  0;
+static int      debug_enabled  = 0;
+
+static void query_axis(int code, int *min, int *max, int *center, int *initial) {
+    struct input_absinfo info;
+    if (ioctl(ev_fd, EVIOCGABS(code), &info) == 0) {
+        *min     = info.minimum;
+        *max     = info.maximum;
+        *center  = info.minimum + (info.maximum - info.minimum) / 2;
+        *initial = info.value;
     }
 }
 
-static uint16_t button_bit_for(uint8_t number) {
-    switch (number) {
-        case 0:  return INPUT_FIRE;
-        case 8:  return INPUT_SELECT;
-        case 9:  return INPUT_START;
-        default: return 0;          /* ignored */
+static void open_device(void) {
+    debug_enabled = (getenv("NML_INPUT_DEBUG") != NULL);
+
+    ev_fd = open(EV_DEVICE, O_RDONLY | O_NONBLOCK);
+    if (ev_fd < 0) {
+        fprintf(stderr,
+                "input_real: open(%s) failed: %s -- "
+                "no gamepad input until fixed.\n",
+                EV_DEVICE, strerror(errno));
+        ev_fd = FD_DISABLED;
+        return;
+    }
+
+    query_axis(ABS_CODE_X, &axis_x_min, &axis_x_max, &axis_x_center, &axis_x_value);
+    query_axis(ABS_CODE_Y, &axis_y_min, &axis_y_max, &axis_y_center, &axis_y_value);
+
+    if (debug_enabled) {
+        fprintf(stderr,
+                "input_real: opened %s; "
+                "X[min=%d max=%d center=%d initial=%d] "
+                "Y[min=%d max=%d center=%d initial=%d]\n",
+                EV_DEVICE,
+                axis_x_min, axis_x_max, axis_x_center, axis_x_value,
+                axis_y_min, axis_y_max, axis_y_center, axis_y_value);
+    }
+}
+
+static uint16_t button_bit_for(uint16_t code) {
+    switch (code) {
+        case BTN_CODE_FIRE:   return INPUT_FIRE;
+        case BTN_CODE_START:  return INPUT_START;
+        case BTN_CODE_SELECT: return INPUT_SELECT;
+        default:              return 0;
     }
 }
 
 static void drain_events(void) {
-    struct js_event ev;
-    while (read(js_fd, &ev, sizeof(ev)) == (ssize_t)sizeof(ev)) {
-        /* Strip the JS_EVENT_INIT bit: synthetic events at open emit the
-           initial state of every button and axis, which we want to apply. */
-        uint8_t type = ev.type & ~JS_EVENT_INIT;
+    struct input_event ev;
+    while (read(ev_fd, &ev, sizeof(ev)) == (ssize_t)sizeof(ev)) {
+        if (debug_enabled && ev.type != EV_SYN) {
+            fprintf(stderr, "ev: type=0x%02x code=0x%03x value=%d\n",
+                    ev.type, ev.code, ev.value);
+        }
 
-        if (type == JS_EVENT_BUTTON) {
-            uint16_t bit = button_bit_for(ev.number);
+        if (ev.type == EV_KEY) {
+            uint16_t bit = button_bit_for(ev.code);
             if (!bit) continue;
             if (ev.value) button_state |=  bit;
             else          button_state &= ~bit;
-        } else if (type == JS_EVENT_AXIS) {
-            if      (ev.number == 0) axis_x = ev.value;
-            else if (ev.number == 1) axis_y = ev.value;
+        } else if (ev.type == EV_ABS) {
+            if      (ev.code == ABS_CODE_X) axis_x_value = ev.value;
+            else if (ev.code == ABS_CODE_Y) axis_y_value = ev.value;
         }
     }
     /* read() returning -1 with EAGAIN/EWOULDBLOCK means "drained"; not an
        error. Any other failure we silently swallow -- the game continues. */
 }
 
+static int deadzone_threshold(int min, int max) {
+    int range = max - min;
+    if (range <= 2) return 0;          /* digital pad on a -1/0/+1 axis */
+    return range / 4;                  /* analog: 25% deadzone */
+}
+
 uint16_t input_read(int frame) {
     (void)frame;   /* unused; kept for ABI parity with input_fake.c */
 
-    if (js_fd == JS_FD_UNINIT) open_device();
-    if (js_fd == JS_FD_DISABLED) return 0;
+    if (ev_fd == FD_UNINIT)   open_device();
+    if (ev_fd == FD_DISABLED) return 0;
 
     drain_events();
 
     uint16_t dpad = 0;
-    if (axis_x < -DEADZONE) dpad |= INPUT_LEFT;
-    if (axis_x >  DEADZONE) dpad |= INPUT_RIGHT;
-    if (axis_y < -DEADZONE) dpad |= INPUT_UP;
-    if (axis_y >  DEADZONE) dpad |= INPUT_DOWN;
+    int dx = axis_x_value - axis_x_center;
+    int dy = axis_y_value - axis_y_center;
+    int tx = deadzone_threshold(axis_x_min, axis_x_max);
+    int ty = deadzone_threshold(axis_y_min, axis_y_max);
+
+    if (dx < -tx) dpad |= INPUT_LEFT;
+    if (dx >  tx) dpad |= INPUT_RIGHT;
+    if (dy < -ty) dpad |= INPUT_UP;
+    if (dy >  ty) dpad |= INPUT_DOWN;
 
     return button_state | dpad;
 }
