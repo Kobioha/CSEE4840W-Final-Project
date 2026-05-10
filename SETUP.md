@@ -10,11 +10,23 @@ HPS. It is structured in three phases — do them in order.
 | 1 | **Smoke-test bitstream — pixels on the monitor** | 60–90 min | DE1-SoC, VGA monitor, USB Blaster |
 | 2 | HPS-driven C game on top of the FPGA | several hours | Phase 1 + DE1-SoC SD card with Linux |
 
-> **Status of this checkpoint:** Phase 0 and Phase 1 are complete and ready
-> to test today. Phase 2 requires Qsys integration of the HPS-to-FPGA
-> Lightweight bridge — that work is documented in §6 below, but is **not**
-> done yet. The C driver, render path, and Makefile are written and waiting
-> for the bridge to land.
+> **Status of this checkpoint:**
+> - **Phase 0:** complete.
+> - **Phase 1 (standalone JTAG bitstream):** complete and verified on the
+>   board — sprites render correctly. The smoke-test build lives in `hw/`.
+>   Three SystemVerilog bug fixes landed during bring-up: an `eval_done`
+>   pulse from `sprite_eval` (was edge-detecting `active_mask`, which
+>   silently failed when consecutive scanlines had the same sprite set), a
+>   `WAIT_PIXEL` bubble in `sprite_fetch` to honour the sprite-ROM read
+>   latency, and `vga_clk = ~pix_clk` in `nml_gpu.sv` so the ADV7123 DAC
+>   samples R/G/B mid-cycle.
+> - **Phase 2 (HPS-integrated build):** Platform Designer system is wired
+>   and the kernel sees the peripheral. `nml_gpu` is integrated as an
+>   Avalon slave on the HPS-to-FPGA Lightweight bridge via the `lab3-hw`
+>   skeleton (sibling directory `nml_gpu_hw/`). `soc_system.rbf` and
+>   `soc_system.dtb` are on the SD card; Linux boots and
+>   `/proc/device-tree/sopc@0/bridge@0xc0000000/vga@0x100000000/compatible`
+>   reads `csee4840,nml_gpu-1.0`. **Next step is running the C driver.**
 
 ---
 
@@ -163,36 +175,239 @@ You're now ready for Phase 2.
 
 ---
 
-## 2. Phase 2 — HPS-driven game on top of the bitstream
+## 2. Phase 2 — HPS-integrated build, Linux boot, run the C game
 
-**Goal:** boot Linux on the HPS, load the FPGA from Linux, run the C game
-binary, see the player respond to input.
+**Goal:** integrate `nml_gpu` as an Avalon slave on the HPS-to-FPGA
+Lightweight (LW) bridge, generate `soc_system.rbf` + `soc_system.dtb`, boot
+Linux from the SD card, and run the C game binary against the peripheral.
 
-> **As of this checkpoint:** the bitstream from Phase 1 has no HPS-to-FPGA
-> bridge. Software writes from `/dev/mem` will land in unmapped territory
-> and have no effect. To use the C driver, regenerate the bitstream from a
-> top-level that integrates `nml_gpu` with a Qsys `soc_system` containing
-> the HPS plus the LW bridge. The instructions in §6 below describe that
-> work; the rest of this section assumes it has been done.
+The Phase 1 bitstream in `hw/` is **standalone** (JTAG-loaded, no HPS) and
+keeps working as a fast iteration path for GPU bugs. It is **not** what
+Linux runs against — for Phase 2 we use a separate build directory,
+`nml_gpu_hw/`, that wraps the same SystemVerilog sources in a Platform
+Designer system containing the HPS and the LW bridge.
 
-### 2.1 Boot the board
+### 2.1 Set up `nml_gpu_hw/` from the Lab 3 hardware skeleton
 
-1. Insert the class-issued (or Terasic-provided) DE1-SoC Linux SD card.
-2. Set MSEL switches per the GHRD documentation (default for DE1-SoC is
-   `00000` — FPPx32 from HPS).
-3. Power on.
-4. Connect to the board. Two options:
-   - **Serial (UART):** use the mini-USB UART port. `screen /dev/ttyUSB0
-     115200` or PuTTY at 115 200 8N1. Login `root`, no password.
-   - **SSH:** plug a network cable in. Find the board's IP from the UART
-     console (`ip addr`), then `ssh root@<ip>`.
+The Lab 3 `lab3-hw.tar.gz` (class website) ships a turnkey Platform
+Designer system: HPS configured for the DE1-SoC, DDR3 timings, LW bridge,
+SDRAM pin assignments, and a Makefile that drives `qsys → quartus → rbf →
+dtb`. We reuse that as our Phase 2 build harness, swapping the lab's
+`vga_ball` peripheral for `nml_gpu`.
 
-### 2.2 Build the C binary on the lab machine
+On the lab Linux machine:
+
+```bash
+tar zxf lab3-hw.tar.gz
+mv lab3-hw nml_gpu_hw
+cd nml_gpu_hw
+```
+
+Copy the project's SystemVerilog and hex files into the working dir so
+Platform Designer and Quartus can find them:
+
+```bash
+PROJ=~/path/to/CSEE4840W-Final-Project/hw
+cp $PROJ/nml_gpu.sv             .
+cp $PROJ/avalon_slave_iface.sv  .
+cp $PROJ/vga_timing.sv          .
+cp $PROJ/sprite_eval.sv         .
+cp $PROJ/sprite_fetch.sv        .
+cp $PROJ/compositor.sv          .
+cp $PROJ/pll_25mhz.v            .
+cp $PROJ/sprite_rom.hex $PROJ/tile_rom.hex \
+   $PROJ/palette.hex $PROJ/sprite_table.hex .
+```
+
+Do **not** copy `de1soc_top.sv` — `nml_gpu_hw/soc_system_top.sv` replaces
+it. Keep both `hw/` and `nml_gpu_hw/` in the repo; they share the SV
+sources (sync manually for now, or symlink).
+
+### 2.2 Define `nml_gpu` as a Platform Designer component
+
+```bash
+qsys-edit soc_system.qsys
+```
+
+In Platform Designer:
+
+1. **File → New Component**.
+2. **Component Type tab:** Name `nml_gpu`, Display Name "NML GPU".
+3. **Files tab:** *Add File* every source — `nml_gpu.sv`,
+   `avalon_slave_iface.sv`, `vga_timing.sv`, `sprite_eval.sv`,
+   `sprite_fetch.sv`, `compositor.sv`, `pll_25mhz.v` — into the
+   **Synthesis Files** list. Click **Analyze Synthesis Files**. Set
+   **Top-Level Module** to `nml_gpu` (it will only appear after all the
+   above are in the list and analyze succeeds).
+4. **Signals & Interfaces tab:**
+   - `clock` interface contains `clk` (Signal Type `clk`).
+   - `reset` interface contains `reset_n` (Signal Type `reset_n`,
+     **polarity LOW**, Synchronous Edges NONE, Associated Clock `clock`).
+   - `avalon_slave_0` (Avalon Memory Mapped Slave): set Associated Clock
+     `clock`, Associated Reset `reset`. Drag in the seven `avs_*` signals,
+     map each to its standard Signal Type:
+     - `avs_address` → `address`
+     - `avs_read` → `read`
+     - `avs_write` → `write`
+     - `avs_writedata` → `writedata`
+     - `avs_byteenable` → `byteenable`
+     - `avs_readdata` → `readdata`
+     - `avs_waitrequest` → `waitrequest`
+   - Create a new **Conduit** named `vga`. Drag the eight `vga_*` signals
+     in. Signal Type = lowercase part after `vga_` (`vga_r` → `r`,
+     `vga_blank_n` → `blank_n`, etc.).
+5. Confirm Messages shows **0 errors, 0 warnings**. **Finish → Yes,
+   Save**. This writes `nml_gpu_hw.tcl`.
+6. Edit `nml_gpu_hw.tcl` and append after the `module nml_gpu` block:
+
+   ```tcl
+   set_module_assignment embeddedsw.dts.vendor "csee4840"
+   set_module_assignment embeddedsw.dts.name   "nml_gpu"
+   set_module_assignment embeddedsw.dts.group  "vga"
+   ```
+
+   These three lines are what makes the device tree node carry
+   `compatible = "csee4840,nml_gpu-1.0"`. Forget them and the kernel
+   won't recognise the peripheral.
+
+### 2.3 Connect `nml_gpu_0` into the Qsys system
+
+Still in Platform Designer's main `soc_system` window:
+
+1. If the lab3 skeleton instantiated a `vga_ball_0`, **right-click →
+   Remove**. Two components both exporting a `vga` conduit will refuse to
+   generate.
+2. Library → Project → **NML GPU** → **+ Add…**. Default instance name
+   `nml_gpu_0`.
+3. Connections:
+   - `nml_gpu_0.clock` → `clk_0.clk`
+   - `nml_gpu_0.reset` → `clk_0.clk_reset`
+   - `nml_gpu_0.avalon_slave_0` → `hps_0.h2f_lw_axi_master`
+4. Double-click `nml_gpu_0.vga` in the **Export** column and name the
+   export `vga`.
+5. **File → Save**, then **Generate HDL…** (defaults), then close.
+
+### 2.4 Wire the VGA conduit out to the DE1-SoC pins
+
+Edit `nml_gpu_hw/soc_system_top.sv`. Inside the `soc_system soc_system0
+( ... )` instantiation, add at the end of the port list (with a comma on
+the previous-last line):
+
+```systemverilog
+.vga_r       (VGA_R),
+.vga_g       (VGA_G),
+.vga_b       (VGA_B),
+.vga_clk     (VGA_CLK),
+.vga_hs      (VGA_HS),
+.vga_vs      (VGA_VS),
+.vga_blank_n (VGA_BLANK_N),
+.vga_sync_n  (VGA_SYNC_N)
+```
+
+Then near the bottom of the file, **delete** the two `assign` statements
+that drive `VGA_*` from the lab3 skeleton — leaving them in causes
+multi-driver errors at compile.
+
+Sanity check:
+
+```bash
+grep -n VGA_R soc_system_top.sv
+```
+
+Should show exactly two lines: the `output ... VGA_R` declaration, and
+your `.vga_r (VGA_R),` inside the instance.
+
+### 2.5 Build the bitstream and device tree
+
+From `nml_gpu_hw/`:
+
+```bash
+make qsys-clean ; make qsys     # regenerate Platform Designer output
+make quartus                    # full P&R, ~10–20 min
+make rbf                        # output_files/soc_system.rbf
+make dtb                        # soc_system.dtb (+ soc_system.dts for inspection)
+```
+
+Sanity-check the device tree contains `nml_gpu`:
+
+```bash
+grep -A4 nml_gpu soc_system.dts
+```
+
+Expect:
+
+```
+nml_gpu_0: vga@0x100000000 {
+    compatible = "csee4840,nml_gpu-1.0";
+    reg = <0x00000001 0x00000000 0x00010000>;
+    clocks = <&clk_0>;
+};
+```
+
+The node name is `vga@0x100000000` (from `embeddedsw.dts.group "vga"`) —
+the kernel exposes it as `vga@0x100000000` under the bridge. The address
+span is rounded up to `0x10000` even though `avs_address` is only 14 bits
+(`0x4000`).
+
+Quartus's `$readmemh` should find the four hex files in
+`nml_gpu_hw/`. If you see "Can't find $readmemh file …", add
+`set_global_assignment -name SEARCH_PATH "."` to `soc_system.tcl` near
+the other `set_global_assignment` lines and rebuild.
+
+### 2.6 Boot the board from the new files
+
+The DE1-SoC's U-Boot loads exactly `soc_system.rbf` and `soc_system.dtb`
+from the FAT (boot) partition of the SD card. So both files must land
+there with those exact names.
+
+Pop the SD card out and put it in a USB SD-card reader on a workstation.
+Then either via Finder/file manager (drag-and-drop overwrite) or
+command-line:
+
+```bash
+sudo cp -f nml_gpu_hw/output_files/soc_system.rbf /Volumes/<boot>/
+sudo cp -f nml_gpu_hw/soc_system.dtb              /Volumes/<boot>/
+sync
+```
+
+Verify the dtb that actually landed has your peripheral (works without
+`dtc` because the compatible string is plain text inside the binary):
+
+```bash
+strings /Volumes/<boot>/soc_system.dtb | grep -i nml
+# → csee4840,nml_gpu-1.0
+```
+
+Eject properly (Finder → Eject; on Linux `sudo umount`), insert into
+DE1-SoC, plug mini-USB UART to workstation, open serial console:
+
+```bash
+sudo screen /dev/ttyUSB0 115200    # or /dev/ttyUSB1, whichever shows up
+```
+
+Power on. Linux should boot to a `login:` prompt; `root`, no password.
+
+Verify the kernel sees `nml_gpu`:
+
+```bash
+ls /proc/device-tree/sopc@0/bridge@0xc0000000/
+# expect:  vga@0x100000000   among the entries
+cat /proc/device-tree/sopc@0/bridge@0xc0000000/vga@0x100000000/compatible
+# → csee4840,nml_gpu-1.0
+```
+
+The VGA monitor should already show the sprite scene — `ctrl_enable`
+defaults to 1 at reset, so the bitstream draws pixels the moment the FPGA
+configures, before any HPS code runs. **If you see the player + enemies +
+bullet on the monitor at this point, the entire HW path including the LW
+bridge is working.**
+
+### 2.7 Build the C binary on the lab machine
 
 ```bash
 cd sw
 make             # cross-compiles for armhf using arm-linux-gnueabihf-gcc
-ls -lh nml_game  # should be a static armhf ELF
+ls -lh nml_game  # armhf ELF
 ```
 
 If `arm-linux-gnueabihf-gcc` isn't installed:
@@ -201,7 +416,7 @@ If `arm-linux-gnueabihf-gcc` isn't installed:
 sudo apt install gcc-arm-linux-gnueabihf
 ```
 
-Alternatively, build natively on the board itself:
+Or build natively on the board:
 
 ```bash
 scp sw/*.c sw/*.h sw/Makefile root@<board>:/root/sw/
@@ -209,42 +424,7 @@ ssh root@<board>
 cd sw && make native
 ```
 
-### 2.3 Load the FPGA from Linux on the HPS
-
-Copy the `.rbf` (Quartus generated this alongside the `.sof` because we
-asked for it via `GENERATE_RBF_FILE ON`) to the board:
-
-```bash
-scp hw/quartus/output_files/nml_gpu.rbf root@<board>:/lib/firmware/
-```
-
-On the board, load it. The exact command depends on the kernel version on
-the SD card; try in order until one works:
-
-1. **Modern fpga-manager interface (Linux 4.x+):**
-
-   ```bash
-   echo 0 > /sys/class/fpga_manager/fpga0/flags
-   echo nml_gpu.rbf > /sys/class/fpga_manager/fpga0/firmware
-   dmesg | tail   # expect "fpga_manager fpga0: writing nml_gpu.rbf to ..."
-   ```
-
-2. **Terasic `fpga_config` script (older images):**
-
-   ```bash
-   cd /home/root && ./fpga_config /lib/firmware/nml_gpu.rbf
-   ```
-
-3. **Direct `dd` to the FPGA manager device (rare):**
-
-   ```bash
-   dd if=/lib/firmware/nml_gpu.rbf of=/dev/fpga0 bs=1M
-   ```
-
-Whichever succeeds, confirm by `cat /sys/class/fpga_manager/fpga0/state` —
-should print `operating` (or similar "configured" string).
-
-### 2.4 Copy and run the game
+### 2.8 Run the game
 
 ```bash
 scp sw/nml_game root@<board>:/root/
@@ -260,10 +440,16 @@ Expected behaviour:
   pattern.
 - Yellow bullets fire upward periodically.
 - Red enemies spawn at the top and chase the player.
-- After the player is hit enough times, `GAME OVER. Final score: N` prints
-  on the SSH session and the binary exits.
+- After the player is hit enough times, `GAME OVER. Final score: N`
+  prints on the console and the binary exits.
 
-### 2.5 Check frame timing
+The driver mmaps `/dev/mem` at `NML_LWFPGA_BASE = 0xFF200000` (set in
+`sw/nml_gpu.h`). That's the LW-bridge base from the HPS side; because we
+placed `nml_gpu_0` at offset 0 of the bridge in Platform Designer, no
+header change is needed. If you ever move it, update `NML_LWFPGA_BASE`
+to match.
+
+### 2.9 Check frame timing
 
 While the game is running, in another shell:
 
@@ -284,12 +470,12 @@ out (likely cause: the bitstream isn't actually loaded — re-do §2.3).
 ├── DESIGN.md                 -- requirements doc (Section 5 = register map)
 ├── SETUP.md                  -- this file
 ├── README.md
-├── hw/
+├── hw/                       -- Phase 1 standalone (JTAG, no HPS) build
 │   ├── nml_gpu.sv            -- top peripheral (Avalon slave + RAMs + pipeline)
 │   ├── avalon_slave_iface.sv -- register decode
 │   ├── vga_timing.sv         -- 640x480@60 timing
-│   ├── sprite_eval.sv        -- per-scanline sprite priority sort
-│   ├── sprite_fetch.sv       -- HBLANK sprite fetch into line buffer
+│   ├── sprite_eval.sv        -- per-scanline sprite priority sort (eval_done pulse out)
+│   ├── sprite_fetch.sv       -- HBLANK sprite fetch with WAIT_PIXEL ROM-read bubble
 │   ├── compositor.sv         -- tile + sprite priority MUX + palette lookup
 │   ├── pll_25mhz.v           -- 50→25 MHz divide-by-2 (smoke-test PLL)
 │   ├── de1soc_top.sv         -- DE1-SoC pins + nml_gpu instantiation (no HPS)
@@ -301,6 +487,17 @@ out (likely cause: the bitstream isn't actually loaded — re-do §2.3).
 │   └── quartus/
 │       ├── nml_gpu.qpf       -- Quartus project
 │       └── nml_gpu.qsf       -- pin assignments + file list + settings
+├── nml_gpu_hw/               -- Phase 2 HPS-integrated build (lab3-hw skeleton)
+│   ├── soc_system.qsys       -- Platform Designer system (HPS + LW bridge + nml_gpu_0)
+│   ├── soc_system.tcl        -- Quartus project setup (regenerates .qpf/.qsf)
+│   ├── soc_system_top.sv     -- top wrapper, instantiates soc_system + DE1-SoC pins
+│   ├── soc_system.srf        -- suppressed Quartus warnings
+│   ├── soc_system_board_info.xml -- sopc2dts board metadata
+│   ├── nml_gpu_hw.tcl        -- nml_gpu component descriptor (incl. dts assignments)
+│   ├── Makefile              -- qsys / quartus / rbf / dtb targets
+│   ├── nml_gpu.sv …          -- copies of hw/*.sv + .v + .hex (sync manually)
+│   ├── output_files/soc_system.rbf  -- generated bitstream → SD card boot partition
+│   └── soc_system.dtb        -- generated device tree → SD card boot partition
 └── sw/
     ├── main.c                -- 60 Hz game loop (FPGA or terminal build)
     ├── game.c, game.h        -- entity pool, AI, collision, score
@@ -318,25 +515,41 @@ out (likely cause: the bitstream isn't actually loaded — re-do §2.3).
 
 ## 4. What's done vs. what's outstanding
 
-### Done (this checkpoint)
+### Done
 
 - All compositor SystemVerilog modules.
 - 50→25 MHz pixel clock (`pll_25mhz.v`).
 - `$readmemh` pre-init of palette + initial sprite table — bitstream alone
   shows a complete frame.
-- DE1-SoC top-level wrapper and Quartus project.
+- DE1-SoC top-level wrapper and Quartus project for Phase 1 (`hw/`).
 - C driver (`nml_gpu.h` / `nml_gpu.c`) covering all register regions.
 - Render path (`render.c`) translating game entities to sprite-table writes.
 - Makefile with cross-compile, native, and terminal targets.
 - `gen_rom.py` so future art / level changes don't require manual hex
   editing.
-- Compile-blocking bug fix in `nml_gpu.sv` (port name mismatch + missing
-  `frame_ctr_in` connection on the Avalon slave).
+- Phase 1 SystemVerilog bug fixes verified on the board:
+  - `eval_done` is now an explicit one-cycle pulse from `sprite_eval`
+    (latched in `nml_gpu.sv` until the next `eval_strobe`). The previous
+    edge-detector on `active_mask` silently failed for any scanline where
+    the same set of sprites stayed active — i.e., 15 of every 16 lines.
+  - `sprite_fetch` has a new `WAIT_PIXEL` state inserted between
+    `READ_PIXEL` and `WRITE_PIXEL` so the sprite-ROM read latency lines
+    up; previously each sprite was shifted by 1 px with the right border
+    missing.
+  - `vga_clk = ~pix_clk` so the ADV7123 DAC samples R/G/B mid-cycle.
+- Phase 2 hardware path: `nml_gpu` integrated as Avalon slave on the LW
+  bridge via Platform Designer, lives at `0xFF200000` from the HPS side.
+  Linux boots from the new `soc_system.rbf` + `soc_system.dtb`; kernel
+  device tree exposes it at `vga@0x100000000` with
+  `compatible = "csee4840,nml_gpu-1.0"`. Standalone bitstream produces
+  the correct sprite scene the moment the FPGA configures.
 
 ### Outstanding (per `DESIGN.md`)
 
-- **HPS-to-FPGA Lightweight bridge integration in Qsys.** Required before
-  the C driver does anything. See §6.
+- **End-to-end HPS run.** §2.7–2.8: cross-compile `sw/`, scp to the
+  board, run `./nml_game`, confirm the player drifts under
+  `input_fake.c`'s test pattern. The hardware path is ready; this is the
+  remaining mile.
 - **HUD overlay** in `compositor.sv` (HP bar, wave, score). Reads from
   `player_pos`, `player_stats`, `score_reg`, `kill_count` already exposed
   by `avalon_slave_iface`.
@@ -357,7 +570,10 @@ out (likely cause: the bitstream isn't actually loaded — re-do §2.3).
   sentinel and drop the workaround, or formalise the active bit in the
   design doc.
 - **Frame counter** in `STATUS[15:8]` is wired to a constant `8'd0` in
-  `nml_gpu.sv:175` — needs a counter incremented on each VSYNC.
+  `nml_gpu.sv` — needs a counter incremented on each VSYNC.
+- **Cleanup duplicated SV sources.** `hw/` and `nml_gpu_hw/` both hold
+  copies of `nml_gpu.sv` etc. Add a sync rule (or symlinks) so editing one
+  can't drift from the other.
 
 ---
 
@@ -380,76 +596,88 @@ out (likely cause: the bitstream isn't actually loaded — re-do §2.3).
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| `nml_open: /dev/mem: Permission denied` | not root | `sudo ./nml_game` or `su -` first |
-| `nml_open: mmap: Invalid argument` | Lightweight bridge isn't routed through Qsys | §6 |
-| Game runs, no visual change on monitor | Bitstream loaded but Qsys isn't routing LW bridge to nml_gpu | §6; verify bridge base is `0xFF200000` and nml_gpu sits at offset 0 |
-| `nml_commit_frame: timed out waiting for SWAP commit` | VBLANK/SWAP_PENDING not making it back through STATUS register read path | check that `vblank_in` and `swap_pending_in` are connected in nml_gpu.sv (they are, line 168) and that the slave iface read path returns them (line 188) |
+| `screen` exits immediately | Wrong device path / permission / port busy | `ls /dev/ttyUSB* /dev/ttyACM*`; `dmesg \| tail` to see what attached when you plugged in; `sudo screen /dev/ttyUSB0 115200` |
+| U-Boot: "can't find valid device tree" | `soc_system.dtb` missing or under a non-default name on FAT partition | Pop SD card, drop a valid `soc_system.dtb` onto the boot partition, sync, eject |
+| Linux boots from old `vga_ball` dtb instead of new one | Either copy didn't land or there are multiple dtbs and U-Boot picked the wrong one | `strings /Volumes/<boot>/soc_system.dtb \| grep nml` — if it shows `vga_ball` you've still got the old one. Force overwrite with `cp -f`, `sync`, eject properly. |
+| `make dtb` produces dts without `nml_gpu` node | `set_module_assignment` lines missing from `nml_gpu_hw.tcl`, or stale dts/dtb on disk | `grep set_module_assignment nml_gpu_hw.tcl` (expect 3 lines: vendor / name / group); `rm -f soc_system.dtb soc_system.dts ; make dtb` |
+| `nml_open: /dev/mem: Permission denied` | Not root | `sudo ./nml_game` or `su -` first |
+| `nml_open: mmap: Invalid argument` | LW bridge isn't routed through Qsys, or bridge base mismatched | Check `cat /proc/device-tree/sopc@0/bridge@0xc0000000/vga@0x100000000/reg`; reconcile with `NML_LWFPGA_BASE` in `sw/nml_gpu.h` (default `0xFF200000`) |
+| Game runs, no visual change on monitor | Bitstream loaded but Qsys isn't routing LW bridge to nml_gpu | Verify `nml_gpu_0` is connected to `hps_0.h2f_lw_axi_master` in `soc_system.qsys`; check it's at offset 0 of the bridge; rebuild |
+| Bitstream not loaded into FPGA at boot | U-Boot's `fpga_load` failed, often because rbf is missing or wrong size | Watch U-Boot console; expect `fatload mmc 0:1 ... soc_system.rbf` to print "~7 MB read"; if not, file is missing/corrupt |
+| `nml_commit_frame: timed out waiting for SWAP commit` | VBLANK/SWAP_PENDING not making it back through STATUS register read path | Check that `vblank_in` and `swap_pending_in` are connected in `nml_gpu.sv` and that the slave iface read path returns them |
 
 ---
 
-## 6. Phase 2 prerequisite — adding the HPS-to-FPGA bridge
+## 6. Notes on the Phase 2 build harness (`nml_gpu_hw/`)
 
-This is the largest outstanding work item. Because doing it correctly
-requires interactive Qsys (Platform Designer) work, the steps below are a
-walkthrough rather than a script. Plan ~3 hours the first time.
+The full Platform Designer integration procedure lives in §2.1–§2.5
+above; this section just records the design choices and gotchas worth
+remembering when the system needs to be rebuilt or extended.
 
-### 6.1 Start from the DE1-SoC Golden Hardware Reference Design (GHRD)
+### 6.1 Why `lab3-hw`, not the GHRD
 
-Don't build the HPS configuration from scratch. Download the GHRD from the
-Terasic DE1-SoC system CD (or your TA's class-issued copy). It already has:
+We considered starting from the Terasic DE1-SoC Golden Hardware Reference
+Design and porting `nml_gpu` into it directly. The lab3 skeleton is a
+simpler version of the same idea (HPS + LW bridge + Quartus build
+harness) that's already known-good for the class image, so the integration
+takes minutes instead of hours.
 
-- HPS pin mux + DDR3 timings configured for the DE1-SoC.
-- HPS-to-FPGA Lightweight bridge present in Qsys.
-- Linux SD-card boot setup.
+### 6.2 Where things live
 
-### 6.2 Patch the GHRD Qsys system to expose `nml_gpu`
+- **Custom-component descriptor:** `nml_gpu_hw/nml_gpu_hw.tcl`. Lists
+  every SystemVerilog source, the interface mappings (avalon_slave_0,
+  conduit `vga`, clock, reset), and the three `embeddedsw.dts.*`
+  assignments that produce the kernel's compatible string.
+- **Platform Designer system:** `nml_gpu_hw/soc_system.qsys`. Contains
+  `clk_0`, `hps_0`, and `nml_gpu_0`, with `nml_gpu_0`'s Avalon slave
+  connected to `hps_0.h2f_lw_axi_master`.
+- **Top-level wrapper:** `nml_gpu_hw/soc_system_top.sv`. Wires the `vga`
+  conduit to the DE1-SoC `VGA_*` pins. The two `assign` statements that
+  drive `VGA_*` from the lab3 skeleton are deleted (otherwise: multi-driver
+  errors).
+- **Build script:** `nml_gpu_hw/Makefile`. Targets `qsys`, `quartus`,
+  `rbf`, `dtb`, plus `qsys-clean` to force regeneration.
 
-In Platform Designer, open the GHRD `soc_system.qsys`:
+### 6.3 Address layout
 
-1. Confirm the **Lightweight HPS-to-FPGA Bridge** is present and exported
-   (master interface).
-2. Add the `nml_gpu` Avalon slave as an external connection. Either:
-   - Wrap `nml_gpu` as a Qsys component (write a `_hw.tcl`), or
-   - Keep `nml_gpu` outside Qsys and connect the LW master conduit to its
-     Avalon slave in the top-level wrapper. This is the simpler path; it's
-     what `de1soc_top.sv` is structured for if you swap the standalone
-     instantiation for a `soc_system` instance plus an `nml_gpu`
-     instance with the LW master signals routed to its `avs_*` ports.
-3. Set the LW bridge base address so `nml_gpu` lives at offset `0x0` of the
-   bridge → HPS sees it at `0xFF200000` (the value `nml_gpu.h` already
-   uses). If you place it elsewhere, update `NML_LWFPGA_BASE` in
-   `sw/nml_gpu.h` accordingly.
-4. **Generate** the Qsys system. This produces `soc_system.v` and a
-   directory of submodule files.
+`nml_gpu` advertises a 14-bit byte address (`avs_address[13:0]` ⇒ 16 KB
+span). Platform Designer rounded up to the next power of two ≥ requested,
+so the LW-bridge mapping uses a `0x10000` (64 KB) window. From the HPS
+side, this is `0xFF200000`–`0xFF20FFFF`. Only the low 16 KB are decoded
+inside `nml_gpu`; reads/writes to the upper 48 KB hit nothing. The C
+driver's `NML_LWFPGA_BASE = 0xFF200000` and per-region offsets in
+`sw/nml_gpu.h` are unaffected by the rounding.
 
-### 6.3 Replace the standalone top with a Qsys-aware top
+### 6.4 Things that bit us during bring-up
 
-The current `de1soc_top.sv` is the standalone (no-HPS) wrapper used for
-Phase 1. For Phase 2 you'll either:
-
-- Modify `de1soc_top.sv` to instantiate `soc_system` (the Qsys output) plus
-  `nml_gpu`, with the LW master signals from `soc_system` connected to the
-  `avs_*` ports of `nml_gpu`. The HPS pins (DDR3, USB, UART, etc.) come
-  from the GHRD top — copy them in.
-- Or keep `de1soc_top.sv` for Phase 1 as a separate revision in
-  `nml_gpu.qpf`, and create a second top file for Phase 2.
-
-### 6.4 Update the .qsf with HPS pin assignments
-
-The GHRD `.qsf` contains ~150 HPS pin location constraints. Append them to
-`hw/quartus/nml_gpu.qsf` (or create a Phase-2-specific `.qsf`). Don't try
-to derive these from the manual — just copy from the GHRD.
-
-### 6.5 Recompile and reload
-
-Rerun §1.4. You should now produce a `.rbf` that the Linux kernel on the
-SD card can load via `fpga_manager`.
+- **Component Editor failed to recognise `nml_gpu` as a top-level module
+  unless every dependency was in the Synthesis Files list.** With only a
+  subset, it silently fell back to `avalon_slave_iface` as the analyzed
+  top, generating Avalon-spec errors on `bg_scroll`, `ctrl_enable`, etc.
+  Fix: add all 7 source files (`nml_gpu.sv`, `avalon_slave_iface.sv`,
+  `vga_timing.sv`, `sprite_eval.sv`, `sprite_fetch.sv`, `compositor.sv`,
+  `pll_25mhz.v`) and re-Analyze.
+- **Auto-detection placed `vga_r/g/b` (8-bit) into `avalon_slave_0` as
+  `readdata`,** producing "readdata appears 4 times" and width-mismatch
+  errors. Fix: drag the eight `vga_*` signals into the `vga` Conduit and
+  set Signal Type to the lowercase part after `vga_`.
+- **`make dtb` happily reused a stale `soc_system.dts`.** If the dts
+  doesn't reflect a recent `nml_gpu_hw.tcl` change, force a regen with
+  `rm -f soc_system.dtb soc_system.dts ; make dtb`.
+- **U-Boot only loads files named exactly `soc_system.rbf` and
+  `soc_system.dtb`** from the FAT partition. Any other name silently
+  doesn't load (or, worse, U-Boot continues with no fpga config and Linux
+  boots against an unconfigured fabric).
+- **Drag-and-drop to the SD card on macOS doesn't always commit until
+  Eject.** Verify the dtb actually landed with
+  `strings /Volumes/<boot>/soc_system.dtb | grep nml` before
+  re-inserting.
 
 ---
 
 ## 7. Quick reference
 
-### One-liner Phase 1 build (after `gen_rom.py`)
+### One-liner Phase 1 build (standalone JTAG, after `gen_rom.py`)
 
 ```bash
 ( cd hw/quartus && quartus_sh --flow compile nml_gpu )                 \
@@ -457,20 +685,52 @@ SD card can load via `fpga_manager`.
   && echo "monitor should show the test scene now"
 ```
 
+### Phase 2 — rebuild rbf + dtb after editing `nml_gpu_hw/`
+
+```bash
+cd nml_gpu_hw
+make qsys-clean ; make qsys     # only if .qsys / .tcl changed
+make quartus                    # ~10–20 min
+make rbf
+make dtb
+```
+
+Then drop `output_files/soc_system.rbf` and `soc_system.dtb` onto the
+SD card boot partition (overwrite, eject properly).
+
+### Phase 2 — dtb-only iteration (no Quartus rerun)
+
+```bash
+cd nml_gpu_hw
+rm -f soc_system.dtb soc_system.dts
+make dtb
+strings soc_system.dtb | grep nml          # sanity-check
+```
+
 ### Regenerating ROMs after editing palette or sprite layout
 
 ```bash
 cd hw && python3 gen_rom.py
+# then re-copy hex files into nml_gpu_hw/ if Phase 2 build is also relevant:
+cp sprite_rom.hex tile_rom.hex palette.hex sprite_table.hex ../nml_gpu_hw/
 ```
 
-Then recompile in Quartus — `$readmemh` is read at synthesis time, not at
-runtime.
+`$readmemh` is read at synthesis time, not at runtime — re-run the
+appropriate Quartus build.
 
 ### Building the C binary
 
 ```bash
 cd sw
-make             # cross-compile for the board
+make             # cross-compile for the board (armhf)
 make terminal    # host-only debug build
 make clean
+```
+
+### Verify peripheral on a booted board
+
+```bash
+ls /proc/device-tree/sopc@0/bridge@0xc0000000/
+cat /proc/device-tree/sopc@0/bridge@0xc0000000/vga@0x100000000/compatible
+# → csee4840,nml_gpu-1.0
 ```
