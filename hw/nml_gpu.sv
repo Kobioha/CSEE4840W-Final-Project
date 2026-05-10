@@ -117,20 +117,11 @@ module nml_gpu (
         end
     end
 
-    // Smoke-test diagnostic: hardcode the sprite-table read with a case
-    // statement so the data is synthesized as logic, bypassing any
-    // $readmemh propagation issues. Slots 0-3 mirror what gen_rom.py
-    // emits into sprite_table.hex; replace this with the shadow read once
-    // the HPS Avalon path is in place.
-    always_comb begin
-        case (eval_sprtab_raddr)
-            5'd0:    eval_sprtab_rdata = 64'h0000800100e80138; // player at (312,232) id=1
-            5'd1:    eval_sprtab_rdata = 64'h0000900200500078; // enemy  at (120, 80) id=2
-            5'd2:    eval_sprtab_rdata = 64'h00009002005001e0; // enemy  at (480, 80) id=2
-            5'd3:    eval_sprtab_rdata = 64'h0000a003012c0140; // bullet at (320,300) id=3
-            default: eval_sprtab_rdata = 64'd0;
-        endcase
-    end
+    // Connect sprite_eval to the active sprite table. sprite_table_active is
+    // written in this same pix_clk domain on the swap pulse above, so a
+    // combinational read here is in-domain. Drives the 32-to-1 mux that
+    // feeds sprite_eval's FETCH/EVAL pipeline.
+    always_comb eval_sprtab_rdata = sprite_table_active[eval_sprtab_raddr];
 
     // B. Palette RAM
     logic [23:0] palette_ram [0:255];

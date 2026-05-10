@@ -114,7 +114,15 @@ module avalon_slave_iface (
     // Palette:      256 entries × 4B; SW address [9:2] = entry index
     // Tile map:     4800B; SW address [12:0] within region
 
-    // Memory write addresses (word granularity where applicable)
+    // Memory address and write-enable fan-out.
+    //
+    // The slave is configured with Address Units = SYMBOLS in Platform
+    // Designer, so avs_address[13:0] is a byte address. The downstream
+    // memory consumers in nml_gpu.sv expect a *word* index for sprtab and
+    // palette, so we shift by 2 here. mem_waddr is computed whenever a
+    // region matches (read or write) so sprtab_rdata_sw / palette_rdata_sw /
+    // tilemap_rdata_sw return the correct location on devmem2 reads, not
+    // just on writes.
     always_comb begin
         sprtab_we  = 1'b0;
         palette_we = 1'b0;
@@ -122,17 +130,15 @@ module avalon_slave_iface (
         mem_waddr  = '0;
         mem_wdata  = avs_writedata;
 
-        if (avs_write) begin
-            if (region_sprtab) begin
-                sprtab_we = 1'b1;
-                mem_waddr = {6'b0, avs_address[6:0]};  // byte address within sprite table
-            end else if (region_palette) begin
-                palette_we = 1'b1;
-                mem_waddr  = {5'b0, avs_address[9:2]}; // entry index (word addressed)
-            end else if (region_tilemap) begin
-                tilemap_we = 1'b1;
-                mem_waddr  = avs_address[12:0];
-            end
+        if (region_sprtab) begin
+            mem_waddr = {7'b0, avs_address[7:2]};  // 6-bit word index (0..63 → 32 sprites × 2 words)
+            if (avs_write) sprtab_we = 1'b1;
+        end else if (region_palette) begin
+            mem_waddr = {5'b0, avs_address[9:2]};  // 8-bit palette entry index
+            if (avs_write) palette_we = 1'b1;
+        end else if (region_tilemap) begin
+            mem_waddr = avs_address[12:0];         // tilemap is byte-addressed
+            if (avs_write) tilemap_we = 1'b1;
         end
     end
 
