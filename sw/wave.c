@@ -80,6 +80,8 @@ void wave_tick(game_t *g) {
     e->vy     = 0;
     e->hp     = spawn_armed ? w->armed_hp : 1;
     e->phase  = rand() & 0xff;       /* desync horizontal random-walk across enemies */
+    e->ttl    = 0;
+    e->payload = 0;
 
     g->wave_enemies_spawned++;
     if (spawn_armed) g->wave_armed_remaining--;

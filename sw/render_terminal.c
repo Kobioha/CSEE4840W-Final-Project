@@ -21,7 +21,9 @@ static int entity_to_sprite_id(ent_kind_t kind) {
         case ENT_PLAYER:        return SPRITE_PLAYER;
         case ENT_ENEMY_ARMED:
         case ENT_ENEMY_UNARMED: return SPRITE_ENEMY;
-        case ENT_BULLET:        return SPRITE_BULLET;
+        case ENT_BULLET:
+        case ENT_AUTO_PROJ:
+        case ENT_HAZARD:        return SPRITE_BULLET;
         default:                return 0;
     }
 }

@@ -28,7 +28,7 @@ TARGET_FPGA   := nml_game
 TARGET_FAKE   := nml_game_fake
 TARGET_TERM   := nml_game_term
 
-SRC_GAME      := game.c main.c wave.c
+SRC_GAME      := game.c main.c wave.c autoatk.c
 SRC_INPUT     := input_real.c
 SRC_INPUT_FAKE:= input_fake.c
 SRC_RENDER    := render.c nml_gpu.c

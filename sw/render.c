@@ -25,8 +25,66 @@ static uint8_t entity_to_sprite_id(ent_kind_t kind) {
         case ENT_ENEMY_ARMED:
         case ENT_ENEMY_UNARMED: return SPRITE_ID_ENEMY;
         case ENT_BULLET:        return SPRITE_ID_BULLET;
+        /* Auto-projectiles and hazards reuse the bullet sprite (yellow square)
+           until distinct art is added in the gen_rom.py batch. */
+        case ENT_AUTO_PROJ:
+        case ENT_HAZARD:        return SPRITE_ID_BULLET;
         default:                return 0;
     }
+}
+
+/*
+ * Level-up scene: player frozen + three yellow squares as option indicators
+ * along the top, with a green cursor sprite over the active option. The SSH
+ * terminal carries the actual menu text; this is just enough on-screen
+ * feedback for the player to see which option the cursor is on.
+ */
+static void render_levelup(const game_t *g) {
+    const entity_t *p = &g->ents[g->player_i];
+
+    nml_sprite_t player = {
+        .x = (int16_t)p->x, .y = (int16_t)p->y,
+        .sprite_id = SPRITE_ID_PLAYER,
+        .flags = NML_FLAGS(/*prio=*/0, /*hflip=*/0, /*vflip=*/0),
+        .palette_off = 0, .reserved = 0,
+    };
+    nml_write_sprite(0, &player);
+
+    const int xs[3]   = { 160, 320, 480 };
+    const int y_opt   = 100;
+    const int y_curs  = 80;
+
+    for (int i = 0; i < LEVELUP_OPTIONS; ++i) {
+        nml_sprite_t s = {
+            .x = (int16_t)xs[i], .y = (int16_t)y_opt,
+            .sprite_id = SPRITE_ID_BULLET,
+            .flags = NML_FLAGS(/*prio=*/1, 0, 0),
+            .palette_off = 0, .reserved = 0,
+        };
+        nml_write_sprite(1 + i, &s);
+    }
+
+    int cursor_x = xs[g->levelup_cursor < 0 ? 0 :
+                      (g->levelup_cursor >= LEVELUP_OPTIONS
+                       ? LEVELUP_OPTIONS - 1
+                       : g->levelup_cursor)];
+    nml_sprite_t cur = {
+        .x = (int16_t)cursor_x, .y = (int16_t)y_curs,
+        .sprite_id = SPRITE_ID_PLAYER,
+        .flags = NML_FLAGS(/*prio=*/0, 0, 0),
+        .palette_off = 0, .reserved = 0,
+    };
+    nml_write_sprite(4, &cur);
+
+    for (int slot = 5; slot < NML_MAX_SPRITES; ++slot) {
+        nml_hide_sprite(slot);
+    }
+
+    nml_set_player_state((int16_t)p->x, (int16_t)p->y,
+                         (uint8_t)(g->player_hp > 0 ? g->player_hp : 0),
+                         (uint8_t)(g->wave_index + 1),
+                         /*level=*/0);
+    nml_set_score((uint32_t)g->score, 0u);
 }
 
 /*
@@ -68,6 +126,10 @@ static void render_game_over(const game_t *g) {
 void render_frame(const game_t *g) {
     if (g->state == STATE_GAMEOVER) {
         render_game_over(g);
+        return;
+    }
+    if (g->state == STATE_LEVELUP) {
+        render_levelup(g);
         return;
     }
 

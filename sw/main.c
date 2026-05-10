@@ -15,6 +15,7 @@
 #include "input.h"
 #include "render.h"
 #include "wave.h"
+#include "autoatk.h"
 
 #include <signal.h>
 #include <stdio.h>
@@ -60,6 +61,61 @@ static void print_wave_start(const game_t *g) {
     fflush(stdout);
 }
 
+static void print_levelup_menu(const game_t *g) {
+    printf("\n=== LEVEL UP === (wave %d cleared, pick one)\n", g->wave_index + 1);
+    for (int i = 0; i < LEVELUP_OPTIONS; i++) {
+        int kind = g->levelup_options[i];
+        if (kind < 0 || kind >= AA_COUNT) continue;
+        int lvl = g->autoatks[kind].level;
+        char marker = (i == g->levelup_cursor) ? '>' : ' ';
+        if (lvl >= AA_LEVEL_CAP) {
+            printf("  %c [%d] %-12s (LV %d MAX)\n",
+                   marker, i + 1, autoatk_name((autoatk_kind_t)kind), lvl);
+        } else {
+            printf("  %c [%d] %-12s (LV %d -> %d)\n",
+                   marker, i + 1, autoatk_name((autoatk_kind_t)kind), lvl, lvl + 1);
+        }
+    }
+    printf("  Use LEFT/RIGHT to move cursor, B to confirm.\n");
+    fflush(stdout);
+}
+
+static void print_levelup_cursor(const game_t *g) {
+    int kind = g->levelup_options[g->levelup_cursor];
+    if (kind < 0 || kind >= AA_COUNT) return;
+    printf("  cursor -> [%d] %s\n",
+           g->levelup_cursor + 1, autoatk_name((autoatk_kind_t)kind));
+    fflush(stdout);
+}
+
+static void print_levelup_selection(const game_t *g, autoatk_kind_t k) {
+    printf("=== SELECTED: %s (now LV %d) ===\n\n",
+           autoatk_name(k), g->autoatks[k].level);
+    fflush(stdout);
+}
+
+/* Prints the CLEAR delta vs the last wave-start snapshot. Caller is
+   responsible for refreshing the tracker after start of the next wave. */
+static void print_wave_clear(const game_t *g, const wave_tracker_t *t) {
+    if (t->last_wave_index < 0) return;
+    int dscore = g->score         - t->score_at_wave_start;
+    int dka    = g->kills_armed   - t->kills_armed_at_wave_start;
+    int dku    = g->kills_unarmed - t->kills_unarmed_at_wave_start;
+    printf("=== Wave %d CLEAR | +%d score | +%dA / +%dU kills | "
+           "total score %d ===\n",
+           t->last_wave_index + 1, dscore, dka, dku, g->score);
+    fflush(stdout);
+}
+
+static void snapshot_wave_start(const game_t *g, wave_tracker_t *t) {
+    t->last_wave_index             = g->wave_index;
+    t->score_at_wave_start         = g->score;
+    t->kills_armed_at_wave_start   = g->kills_armed;
+    t->kills_unarmed_at_wave_start = g->kills_unarmed;
+}
+
+/* Detects fresh wave starts (initial or after upgrade). Used every tick.
+   No longer handles CLEAR -- that's printed explicitly on PLAYING->LEVELUP. */
 static void track_wave_transitions(const game_t *g, wave_tracker_t *t) {
     /* Restart detected: game.frame jumped backward. Forget previous state. */
     if (g->frame < t->last_frame) {
@@ -69,21 +125,8 @@ static void track_wave_transitions(const game_t *g, wave_tracker_t *t) {
 
     if (g->wave_index == t->last_wave_index) return;
 
-    if (t->last_wave_index >= 0) {
-        int dscore = g->score        - t->score_at_wave_start;
-        int dka    = g->kills_armed  - t->kills_armed_at_wave_start;
-        int dku    = g->kills_unarmed- t->kills_unarmed_at_wave_start;
-        printf("=== Wave %d CLEAR | +%d score | +%dA / +%dU kills | "
-               "total score %d ===\n",
-               t->last_wave_index + 1, dscore, dka, dku, g->score);
-    }
     print_wave_start(g);
-
-    t->last_wave_index             = g->wave_index;
-    t->score_at_wave_start         = g->score;
-    t->kills_armed_at_wave_start   = g->kills_armed;
-    t->kills_unarmed_at_wave_start = g->kills_unarmed;
-    fflush(stdout);
+    snapshot_wave_start(g, t);
 }
 
 #ifndef NML_TERMINAL_BUILD
@@ -129,15 +172,33 @@ int main(void) {
         uint16_t input = input_read(game.frame);
         game_tick(&game, input);
 
-        /* Wave-progression log: prints wave-start banner at game start and
-           on every wave advance, plus a per-wave CLEAR line with delta stats.
-           Gated on prev_state so the wave-advance that may happen on the
-           same tick the player dies still gets reported. */
-        if (game.prev_state == STATE_PLAYING) {
-            track_wave_transitions(&game, &tracker);
+        /* Natural game-flow ordering:
+           PLAYING -> LEVELUP: "Wave N CLEAR" then the menu.
+           In LEVELUP        : cursor moves.
+           LEVELUP -> PLAYING: "SELECTED: X" then "Wave N+1 START" (via tracker).
+           PLAYING -> GAMEOVER: the final breakdown block. */
+
+        if (game.prev_state == STATE_PLAYING && game.state == STATE_LEVELUP) {
+            print_wave_clear(&game, &tracker);
+            print_levelup_menu(&game);
         }
 
-        /* One-shot kill breakdown on the PLAYING -> GAMEOVER transition. */
+        if (game.state == STATE_LEVELUP &&
+            game.levelup_cursor != game.levelup_prev_cursor) {
+            print_levelup_cursor(&game);
+        }
+
+        if (game.prev_state == STATE_LEVELUP && game.state == STATE_PLAYING) {
+            int kind = game.levelup_options[game.levelup_cursor];
+            if (kind >= 0 && kind < AA_COUNT) {
+                print_levelup_selection(&game, (autoatk_kind_t)kind);
+            }
+        }
+
+        /* Wave-START printer: handles initial wave on game start, every
+           wave_index change (LEVELUP->PLAYING), and game restart. */
+        track_wave_transitions(&game, &tracker);
+
         if (game.prev_state == STATE_PLAYING && game.state == STATE_GAMEOVER) {
             printf("\n=== GAME OVER ===\n");
             printf("  score       : %d\n", game.score);
