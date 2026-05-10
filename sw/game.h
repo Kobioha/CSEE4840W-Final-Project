@@ -41,6 +41,7 @@ typedef struct{
   int x,y;
   int vx, vy;
   int hp;
+  int phase;   /* per-spawn random seed; used by enemy AI for de-synced motion */
 } entity_t;
 /*Struct which contains the various statistics and information that
  are crucial to the updating process of the game*/

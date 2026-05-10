@@ -130,8 +130,10 @@ int main(void) {
         game_tick(&game, input);
 
         /* Wave-progression log: prints wave-start banner at game start and
-           on every wave advance, plus a per-wave CLEAR line with delta stats. */
-        if (game.state == STATE_PLAYING) {
+           on every wave advance, plus a per-wave CLEAR line with delta stats.
+           Gated on prev_state so the wave-advance that may happen on the
+           same tick the player dies still gets reported. */
+        if (game.prev_state == STATE_PLAYING) {
             track_wave_transitions(&game, &tracker);
         }
 

@@ -21,6 +21,7 @@ static int spawn_entity(game_t *g, ent_kind_t kind, int x, int y){
       g->ents[i].vx = 0;
       g->ents[i].vy = 0;
       g->ents[i].hp = 1;
+      g->ents[i].phase = 0;     /* player/bullet don't use phase; only enemies do */
       return i;
     }
   }
@@ -85,8 +86,24 @@ static int step_toward(int from, int to, int speed) {
     return to;
 }
 
-/*Updates position of the enemies. Both armed and unarmed share the same chase
-  behavior at the wave's enemy_speed; only HP and score differ between kinds.*/
+/*Updates enemy motion. Vertical: enemies always close on the player's row at
+  the wave's speed, so they reliably threaten the trench. Horizontal: a
+  per-enemy random walk that re-decides direction every ENEMY_DIR_FRAMES.
+  Phase desync prevents the whole cohort from synchronizing into a column,
+  so the player's bullet stream no longer mops them up trivially.
+
+  Decision distribution per re-roll (256 buckets):
+    [   0,  64) -> strafe left   (25%)
+    [  64, 128) -> strafe right  (25%)
+    [ 128, 256) -> chase player  (50%) -- keeps a weak pull so enemies still
+                                          gravitate toward the player overall.*/
+#define ENEMY_DIR_FRAMES 12u
+
+static unsigned enemy_rng(int frame, int phase) {
+    unsigned window = (unsigned)(frame + phase) / ENEMY_DIR_FRAMES;
+    return (window * 1103515245u + (unsigned)phase * 12345u) >> 24;
+}
+
 static void update_enemies(game_t *g) {
     entity_t *p = &g->ents[g->player_i];
     int speed = wave_current(g)->enemy_speed;
@@ -96,8 +113,15 @@ static void update_enemies(game_t *g) {
         entity_t *e = &g->ents[i];
         if (!e->active || !is_enemy(e)) continue;
 
-        e->x = step_toward(e->x, p->x, speed);
         e->y = step_toward(e->y, p->y, speed);
+
+        unsigned r = enemy_rng(g->frame, e->phase);
+        if      (r <  64) e->x -= speed;
+        else if (r < 128) e->x += speed;
+        else              e->x = step_toward(e->x, p->x, speed);
+
+        if (e->x < 0)              e->x = 0;
+        if (e->x > SCREEN_W - 16)  e->x = SCREEN_W - 16;
 
 	/*Makes the player lose hp if an enemy steps over the trench!*/
 	if(e->y >= SCREEN_H - 20){
