@@ -86,11 +86,30 @@ module nml_gpu (
                                                     sprite_table_shadow[mem_waddr[5:1]][63:32];
     end
 
+    // Cross ctrl_swap_req from clk (50 MHz) into pix_clk (25 MHz). The Avalon
+    // side now holds the request for several clk cycles, so a 2-FF synchroniser
+    // here will reliably catch it; we then edge-detect to set swap_pending
+    // exactly once per request rather than continuously while the source is
+    // held high.
+    logic ctrl_swap_req_sync_a, ctrl_swap_req_sync_b, ctrl_swap_req_sync_c;
+    always_ff @(posedge pix_clk or negedge reset_n) begin
+        if (!reset_n) begin
+            ctrl_swap_req_sync_a <= 1'b0;
+            ctrl_swap_req_sync_b <= 1'b0;
+            ctrl_swap_req_sync_c <= 1'b0;
+        end else begin
+            ctrl_swap_req_sync_a <= ctrl_swap_req;
+            ctrl_swap_req_sync_b <= ctrl_swap_req_sync_a;
+            ctrl_swap_req_sync_c <= ctrl_swap_req_sync_b;
+        end
+    end
+    wire ctrl_swap_req_pulse = ctrl_swap_req_sync_b && !ctrl_swap_req_sync_c;
+
     // Swap shadow to active on VSYNC if requested
     always_ff @(posedge pix_clk or negedge reset_n) begin
         if (!reset_n) swap_pending <= 1'b0;
         else begin
-            if (ctrl_swap_req) swap_pending <= 1'b1;
+            if (ctrl_swap_req_pulse) swap_pending <= 1'b1;
             if (swap_pending && vsync) begin
                 for (int i=0; i<32; i++) sprite_table_active[i] <= sprite_table_shadow[i];
                 swap_pending <= 1'b0;

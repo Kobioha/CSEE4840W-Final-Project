@@ -79,9 +79,12 @@ module avalon_slave_iface (
     assign score_reg   = score_reg_int;
     assign kill_count  = kill_count_reg;
 
-    // ctrl_swap_req: one-cycle pulse when SW writes SWAP bit
-    logic swap_req_r;
-    assign ctrl_swap_req = swap_req_r;
+    // ctrl_swap_req: SWAP request held for several clk cycles so the pix_clk
+    // domain (running at clk/2) reliably samples it. A single-cycle pulse
+    // (~20 ns at 50 MHz) is too narrow for the 40 ns pix_clk to catch through
+    // a 2-FF synchronizer; widening it here removes the CDC race.
+    logic [2:0] swap_req_cnt;
+    assign ctrl_swap_req = (swap_req_cnt != 3'd0);
 
     // -----------------------------------------------------------------------
     // Address decode
@@ -145,9 +148,12 @@ module avalon_slave_iface (
             player_stats_reg <= '0;
             score_reg_int    <= '0;
             kill_count_reg   <= '0;
-            swap_req_r       <= 1'b0;
+            swap_req_cnt     <= 3'd0;
         end else begin
-            swap_req_r <= 1'b0;  // auto-clear
+            // SWAP request: count down each cycle until 0. A new SWAP write
+            // reloads the counter (held high for 7 clk cycles ≈ 140 ns, well
+            // over the 80 ns window needed by a 2-FF synchroniser at 25 MHz).
+            if (swap_req_cnt != 3'd0) swap_req_cnt <= swap_req_cnt - 3'd1;
 
             if (avs_write) begin
                 if (region_ctrl) begin
@@ -155,8 +161,8 @@ module avalon_slave_iface (
                         2'h0: begin
                             ctrl_reg <= avs_writedata & 32'hFFFFFF07;
                             if (avs_writedata[1]) begin
-                                swap_req_r   <= 1'b1;
-                                ctrl_reg[1]  <= 1'b0;  // SWAP auto-clears
+                                swap_req_cnt <= 3'd7;     // hold ctrl_swap_req
+                                ctrl_reg[1]  <= 1'b0;     // SWAP auto-clears
                             end
                         end
                         2'h1: ; // STATUS is read-only
