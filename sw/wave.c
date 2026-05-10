@@ -7,12 +7,12 @@
  * armed-fraction over time lives entirely in this table.
  */
 const wave_def_t WAVES[] = {
-    /* spawn_period, total, armed, armed_hp */
-    {  60,  6, 0, 1 },   /* wave 1 -- warmup, all unarmed */
-    {  50,  8, 1, 2 },   /* wave 2 -- first armed appears */
-    {  45, 10, 2, 2 },
-    {  35, 12, 4, 2 },
-    {  25, 16, 6, 3 },   /* wave 5 -- loops here */
+    /* spawn_period, total, armed, armed_hp, enemy_speed */
+    {  60,  6, 0, 1, 1 },   /* wave 1 -- warmup, all unarmed, slow */
+    {  50,  8, 1, 2, 1 },   /* wave 2 -- first armed appears */
+    {  45, 10, 2, 2, 2 },   /* wave 3 -- enemies move 2x faster */
+    {  35, 12, 4, 2, 2 },   /* wave 4 */
+    {  25, 16, 6, 3, 3 },   /* wave 5 -- loops; fastest + tankiest */
 };
 const int WAVE_COUNT = (int)(sizeof(WAVES) / sizeof(WAVES[0]));
 

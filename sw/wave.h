@@ -8,6 +8,7 @@ typedef struct {
     int total_enemies;         /* enemies emitted this wave */
     int armed_count;           /* of total, how many are ENT_ENEMY_ARMED */
     int armed_hp;              /* hp for armed enemies in this wave */
+    int enemy_speed;           /* pixels/frame both axes; >=1 */
 } wave_def_t;
 
 extern const int        WAVE_COUNT;

@@ -14,6 +14,7 @@
 #include "game.h"
 #include "input.h"
 #include "render.h"
+#include "wave.h"
 
 #include <signal.h>
 #include <stdio.h>
@@ -28,6 +29,61 @@ static volatile sig_atomic_t g_running = 1;
 static void on_sigint(int sig) {
     (void)sig;
     g_running = 0;
+}
+
+/* Wave-progression tracker. -1 means "not initialized yet"; on the first
+   iteration (or after a restart) we print only the START banner without a
+   spurious CLEAR line. */
+typedef struct {
+    int last_wave_index;
+    int last_frame;
+    int score_at_wave_start;
+    int kills_armed_at_wave_start;
+    int kills_unarmed_at_wave_start;
+} wave_tracker_t;
+
+static void wave_tracker_init(wave_tracker_t *t) {
+    t->last_wave_index             = -1;
+    t->last_frame                  =  0;
+    t->score_at_wave_start         =  0;
+    t->kills_armed_at_wave_start   =  0;
+    t->kills_unarmed_at_wave_start =  0;
+}
+
+static void print_wave_start(const game_t *g) {
+    const wave_def_t *w = wave_current(g);
+    printf("=== Wave %d START | %d enemies (%d armed @ %d HP, %d unarmed) "
+           "| speed %d px/frame | spawn every %d frames ===\n",
+           g->wave_index + 1, w->total_enemies, w->armed_count,
+           w->armed_hp, w->total_enemies - w->armed_count,
+           w->enemy_speed, w->spawn_period_frames);
+    fflush(stdout);
+}
+
+static void track_wave_transitions(const game_t *g, wave_tracker_t *t) {
+    /* Restart detected: game.frame jumped backward. Forget previous state. */
+    if (g->frame < t->last_frame) {
+        wave_tracker_init(t);
+    }
+    t->last_frame = g->frame;
+
+    if (g->wave_index == t->last_wave_index) return;
+
+    if (t->last_wave_index >= 0) {
+        int dscore = g->score        - t->score_at_wave_start;
+        int dka    = g->kills_armed  - t->kills_armed_at_wave_start;
+        int dku    = g->kills_unarmed- t->kills_unarmed_at_wave_start;
+        printf("=== Wave %d CLEAR | +%d score | +%dA / +%dU kills | "
+               "total score %d ===\n",
+               t->last_wave_index + 1, dscore, dka, dku, g->score);
+    }
+    print_wave_start(g);
+
+    t->last_wave_index             = g->wave_index;
+    t->score_at_wave_start         = g->score;
+    t->kills_armed_at_wave_start   = g->kills_armed;
+    t->kills_unarmed_at_wave_start = g->kills_unarmed;
+    fflush(stdout);
 }
 
 #ifndef NML_TERMINAL_BUILD
@@ -63,12 +119,21 @@ int main(void) {
     game_t game;
     game_init(&game);
 
+    wave_tracker_t tracker;
+    wave_tracker_init(&tracker);
+
     while (g_running) {
         struct timespec t0;
         clock_gettime(CLOCK_MONOTONIC, &t0);
 
         uint16_t input = input_read(game.frame);
         game_tick(&game, input);
+
+        /* Wave-progression log: prints wave-start banner at game start and
+           on every wave advance, plus a per-wave CLEAR line with delta stats. */
+        if (game.state == STATE_PLAYING) {
+            track_wave_transitions(&game, &tracker);
+        }
 
         /* One-shot kill breakdown on the PLAYING -> GAMEOVER transition. */
         if (game.prev_state == STATE_PLAYING && game.state == STATE_GAMEOVER) {
@@ -79,6 +144,7 @@ int main(void) {
             printf("  kills unarmd: %d\n", game.kills_unarmed);
             printf("  press START to restart\n");
             printf("=================\n\n");
+            fflush(stdout);
         }
 
         render_frame(&game);

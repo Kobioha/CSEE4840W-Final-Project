@@ -76,19 +76,28 @@ static void update_player(game_t *g, uint16_t input) {
     }
 }
 
+/*Step a coord toward a target by at most `speed` pixels, clamping the final
+  step so we don't overshoot and oscillate.*/
+static int step_toward(int from, int to, int speed) {
+    int delta = to - from;
+    if (delta >  speed) return from + speed;
+    if (delta < -speed) return from - speed;
+    return to;
+}
+
 /*Updates position of the enemies. Both armed and unarmed share the same chase
-  behavior; their HP and score values are what differ.*/
+  behavior at the wave's enemy_speed; only HP and score differ between kinds.*/
 static void update_enemies(game_t *g) {
     entity_t *p = &g->ents[g->player_i];
+    int speed = wave_current(g)->enemy_speed;
+    if (speed < 1) speed = 1;
 
     for (int i = 0; i < MAX_ENTITIES; i++) {
         entity_t *e = &g->ents[i];
         if (!e->active || !is_enemy(e)) continue;
 
-        if (e->x < p->x) e->x++;
-        if (e->x > p->x) e->x--;
-        if (e->y < p->y) e->y++;
-        if (e->y > p->y) e->y--;
+        e->x = step_toward(e->x, p->x, speed);
+        e->y = step_toward(e->y, p->y, speed);
 
 	/*Makes the player lose hp if an enemy steps over the trench!*/
 	if(e->y >= SCREEN_H - 20){
