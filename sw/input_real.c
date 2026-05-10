@@ -42,8 +42,8 @@
 #define FD_UNINIT        (-1)
 #define FD_DISABLED      (-2)
 
-/* Button codes -- edit these if the controller uses different codes. */
-#define BTN_CODE_FIRE    BTN_THUMB     /* 0x121 -- "B" */
+/* Button codes -- verified against the DragonRise dump from this controller. */
+#define BTN_CODE_FIRE    BTN_THUMB2    /* 0x122 -- "B" */
 #define BTN_CODE_START   BTN_BASE4     /* 0x129 -- Start */
 #define BTN_CODE_SELECT  BTN_BASE3     /* 0x128 -- Select */
 
