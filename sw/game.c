@@ -28,6 +28,8 @@ void game_init(game_t *g) {
     g->frame = 0;
     g->score = 0;
     g->player_hp = 100;
+    g->state = STATE_PLAYING;
+    g->prev_input = 0;
 
     g->player_i = spawn_entity(g, ENT_PLAYER, SCREEN_W / 2, SCREEN_H - 60);
 }
@@ -47,7 +49,7 @@ static void update_player(game_t *g, uint16_t input) {
     if (p->y < HUD_H) p->y = HUD_H;
     if (p->y > SCREEN_H - 16) p->y = SCREEN_H - 16;
 
-    if ((input & INPUT_FIRE) && g->frame % 10 == 0) {
+    if (input & INPUT_FIRE) {
         int b = spawn_entity(g, ENT_BULLET, p->x + 8, p->y - 8);
         if (b >= 0) {
             g->ents[b].vy = -8;
@@ -130,12 +132,41 @@ static void handle_collisions(game_t *g) {
     }
 }
 
+/* Edge-detect: was the bit unset last tick and set this tick? */
+static int input_pressed(const game_t *g, uint16_t input, uint16_t bit) {
+    return (input & bit) && !(g->prev_input & bit);
+}
+
 void game_tick(game_t *g, uint16_t input) {
     g->frame++;
+
+    if (g->state == STATE_GAMEOVER) {
+        if (input_pressed(g, input, INPUT_START)) {
+            game_init(g);
+            /* game_init() reset prev_input to 0; preserve the current input so
+               the still-held Start button doesn't re-trigger next tick. */
+            g->prev_input = input;
+            return;
+        }
+        g->prev_input = input;
+        return;
+    }
 
     update_player(g, input);
     spawn_enemies(g);
     update_enemies(g);
     update_bullets(g);
     handle_collisions(g);
+
+    if (g->player_hp <= 0) {
+        g->state = STATE_GAMEOVER;
+        /* Freeze the death frame: deactivate everything except the player so the
+           game-over screen has clean slots to draw into. */
+        for (int i = 0; i < MAX_ENTITIES; i++) {
+            if (i != g->player_i) g->ents[i].active = 0;
+        }
+        g->ents[g->player_i].active = 0;
+    }
+
+    g->prev_input = input;
 }

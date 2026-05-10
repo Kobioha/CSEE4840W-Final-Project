@@ -9,11 +9,13 @@
 #define SCREEN_H 480
 #define HUD_H 24
 
-#define INPUT_LEFT  (1 << 0)
-#define INPUT_RIGHT (1 << 1)
-#define INPUT_UP    (1 << 2)
-#define INPUT_DOWN  (1 << 3)
-#define INPUT_FIRE  (1 << 4)
+#define INPUT_LEFT   (1 << 0)
+#define INPUT_RIGHT  (1 << 1)
+#define INPUT_UP     (1 << 2)
+#define INPUT_DOWN   (1 << 3)
+#define INPUT_FIRE   (1 << 4)
+#define INPUT_START  (1 << 5)
+#define INPUT_SELECT (1 << 6)
 /*Struct which defines the types of entities that can be
  found in the game: player, enemy, and bullet*/
 typedef enum {
@@ -22,6 +24,11 @@ typedef enum {
   ENT_ENEMY,
   ENT_BULLET
 } ent_kind_t;
+
+typedef enum {
+  STATE_PLAYING = 0,
+  STATE_GAMEOVER
+} game_state_t;
 /*Struct which contains the various attributes of the
  kinds of entities that exist in the game:
 their kind, whether or not they are active, their position, velocity
@@ -41,6 +48,8 @@ typedef struct{
   int frame;
   int score;
   int player_hp;
+  game_state_t state;
+  uint16_t prev_input;
 } game_t;
 
 void game_init(game_t *g);

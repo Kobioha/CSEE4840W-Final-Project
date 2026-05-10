@@ -26,7 +26,48 @@ static uint8_t entity_to_sprite_id(ent_kind_t kind) {
     }
 }
 
+/*
+ * Game-over screen: lay out a 5-sprite X centered on the screen using bullet
+ * sprites. No font yet, so this is a placeholder distinct enough from gameplay
+ * (static, centered, X-shaped) that the player can tell they died.
+ */
+static void render_game_over(const game_t *g) {
+    const int cx = SCREEN_W / 2 - 8;   /* sprites are 16x16; offset to center */
+    const int cy = SCREEN_H / 2 - 8;
+    const int step = 20;
+
+    const int xs[5] = { cx,           cx - step, cx + step, cx - step, cx + step };
+    const int ys[5] = { cy,           cy - step, cy - step, cy + step, cy + step };
+
+    /* Slot 0 was always the player; replace with first X-arm. */
+    for (int i = 0; i < 5; ++i) {
+        nml_sprite_t s = {
+            .x           = (int16_t)xs[i],
+            .y           = (int16_t)ys[i],
+            .sprite_id   = SPRITE_ID_BULLET,
+            .flags       = NML_FLAGS(/*prio=*/0, /*hflip=*/0, /*vflip=*/0),
+            .palette_off = 0,
+            .reserved    = 0,
+        };
+        nml_write_sprite(i, &s);
+    }
+
+    /* Hide the rest. */
+    for (int slot = 5; slot < NML_MAX_SPRITES; ++slot) {
+        nml_hide_sprite(slot);
+    }
+
+    /* Still publish the final score for the (future) HUD. */
+    nml_set_player_state(0, 0, 0, /*wave=*/0, /*level=*/0);
+    nml_set_score((uint32_t)g->score, /*kills=*/0u);
+}
+
 void render_frame(const game_t *g) {
+    if (g->state == STATE_GAMEOVER) {
+        render_game_over(g);
+        return;
+    }
+
     /* Slot 0 = player, always written. */
     const entity_t *p = &g->ents[g->player_i];
 

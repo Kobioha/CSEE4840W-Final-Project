@@ -15,12 +15,20 @@
 #include "input.h"
 #include "render.h"
 
+#include <signal.h>
 #include <stdio.h>
 #include <time.h>
 
 #ifndef NML_TERMINAL_BUILD
 #  include "nml_gpu.h"
 #endif
+
+static volatile sig_atomic_t g_running = 1;
+
+static void on_sigint(int sig) {
+    (void)sig;
+    g_running = 0;
+}
 
 #ifndef NML_TERMINAL_BUILD
 static void init_palette_runtime(void) {
@@ -48,10 +56,14 @@ int main(void) {
     nml_set_enable(1);
 #endif
 
+    /* Catch Ctrl-C so we can shut down cleanly and turn the video off. */
+    signal(SIGINT,  on_sigint);
+    signal(SIGTERM, on_sigint);
+
     game_t game;
     game_init(&game);
 
-    while (game.player_hp > 0) {
+    while (g_running) {
         struct timespec t0;
         clock_gettime(CLOCK_MONOTONIC, &t0);
 
@@ -80,7 +92,7 @@ int main(void) {
         }
     }
 
-    printf("GAME OVER. Final score: %d\n", game.score);
+    printf("\nShutting down. Final score: %d\n", game.score);
 
 #ifndef NML_TERMINAL_BUILD
     nml_set_enable(0);
