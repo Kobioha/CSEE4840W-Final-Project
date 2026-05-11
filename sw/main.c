@@ -130,6 +130,27 @@ static void track_wave_transitions(const game_t *g, wave_tracker_t *t) {
 }
 
 #ifndef NML_TERMINAL_BUILD
+static void init_tilemap_runtime(void) {
+    /* Scatter the tile patterns from hw/gen_rom.py for visual texture.
+     * Tile 0 = solid bg, tile 1 = bg with corner accents (unused here),
+     * tile 2 = horizontal stripes (trench feel), tile 3 = dirt scatter.
+     * Bottom 4 tile-rows render as trench stripes; the rest is plain bg
+     * sprinkled with the occasional dirt cell. */
+    for (int row = 0; row < NML_TILEMAP_ROWS; ++row) {
+        for (int col = 0; col < NML_TILEMAP_COLS; ++col) {
+            uint8_t tile_id;
+            if (row >= NML_TILEMAP_ROWS - 4) {
+                tile_id = 2;                                   /* trench */
+            } else if ((row * 7 + col * 11) % 9 == 0) {
+                tile_id = 3;                                   /* dirt accent */
+            } else {
+                tile_id = 0;                                   /* plain bg */
+            }
+            nml_write_tile(col, row, tile_id);
+        }
+    }
+}
+
 static void init_palette_runtime(void) {
     /* Mirrors hw/gen_rom.py palette indices. We rewrite them here so the SW
      * remains the authoritative source of palette data once the C driver is
@@ -158,7 +179,9 @@ int main(void) {
         return 1;
     }
     init_palette_runtime();
+    init_tilemap_runtime();
     nml_set_enable(1);
+    nml_set_hud_on(1);
 #endif
 
     /* Catch Ctrl-C so we can shut down cleanly and turn the video off. */

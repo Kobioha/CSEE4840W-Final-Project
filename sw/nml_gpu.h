@@ -87,6 +87,7 @@ typedef struct {
 int  nml_open(void);
 void nml_close(void);
 void nml_set_enable(int on);
+void nml_set_hud_on(int on);
 void nml_write_palette(int idx, uint8_t r, uint8_t g, uint8_t b);
 void nml_write_tile(int col, int row, uint8_t tile_id);
 void nml_write_sprite(int slot, const nml_sprite_t *s);

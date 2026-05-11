@@ -256,6 +256,10 @@ module nml_gpu (
         .pix_clk(pix_clk), .reset_n(reset_n),
         .x(x), .y(y), .visible(visible),
         .scroll_x(bg_scroll[15:0]), .scroll_y(bg_scroll[31:16]),
+        // HUD overlay routing
+        .hud_on(ctrl_hud_on),
+        .player_stats(player_stats),
+        .score_reg(score),
         .tilemap_raddr(tilemap_raddr), .tilemap_rdata(tilemap_rdata),
         .tilerom_raddr(tilerom_raddr), .tilerom_rdata(tilerom_rdata),
         .linebuf_raddr(comp_raddr), .linebuf_rdata(comp_rdata),

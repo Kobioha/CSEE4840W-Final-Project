@@ -136,13 +136,108 @@ def make_sprite_rom() -> bytearray:
     return rom
 
 
+DIGIT_GLYPHS = {
+    0: ("........",
+        ".######.",
+        ".##..##.",
+        ".##..##.",
+        ".##..##.",
+        ".##..##.",
+        ".######.",
+        "........"),
+    1: ("........",
+        "...##...",
+        "..###...",
+        "...##...",
+        "...##...",
+        "...##...",
+        ".######.",
+        "........"),
+    2: ("........",
+        ".######.",
+        ".....##.",
+        ".....##.",
+        ".######.",
+        ".##.....",
+        ".######.",
+        "........"),
+    3: ("........",
+        ".######.",
+        ".....##.",
+        ".....##.",
+        ".######.",
+        ".....##.",
+        ".######.",
+        "........"),
+    4: ("........",
+        "..#..#..",
+        "..#..#..",
+        "..####..",
+        ".....#..",
+        ".....#..",
+        ".....#..",
+        "........"),
+    5: ("........",
+        ".######.",
+        ".##.....",
+        ".######.",
+        ".....##.",
+        ".....##.",
+        ".######.",
+        "........"),
+    6: ("........",
+        ".######.",
+        ".##.....",
+        ".######.",
+        ".##..##.",
+        ".##..##.",
+        ".######.",
+        "........"),
+    7: ("........",
+        ".######.",
+        ".....##.",
+        ".....##.",
+        "....##..",
+        "...##...",
+        "...##...",
+        "........"),
+    8: ("........",
+        ".######.",
+        ".##..##.",
+        ".######.",
+        ".##..##.",
+        ".##..##.",
+        ".######.",
+        "........"),
+    9: ("........",
+        ".######.",
+        ".##..##.",
+        ".######.",
+        ".....##.",
+        ".....##.",
+        ".######.",
+        "........"),
+}
+DIGIT_TILE_BASE = 48   # tile slots 48..57
+
+
 def make_tile_rom() -> bytearray:
     rom = bytearray(TILE_ROM_BYTES)
+
+    def put(slot: int, u: int, v: int, pal: int) -> None:
+        rom[slot * 64 + v * 8 + u] = pal
 
     def fill_solid(slot: int, pal: int) -> None:
         for v in range(8):
             for u in range(8):
-                rom[slot * 64 + v * 8 + u] = pal
+                put(slot, u, v, pal)
+
+    def fill_glyph(slot: int, glyph: tuple, fg: int) -> None:
+        for v in range(8):
+            for u in range(8):
+                if glyph[v][u] == '#':
+                    put(slot, u, v, fg)
+                # else leave 0 (transparent / HUD background fill)
 
     # tile 0: solid background
     fill_solid(0, PAL_BG)
@@ -150,7 +245,23 @@ def make_tile_rom() -> bytearray:
     # tile 1: background with accent dots in the corners
     fill_solid(1, PAL_BG)
     for v, u in ((0, 0), (0, 7), (7, 0), (7, 7)):
-        rom[1 * 64 + v * 8 + u] = PAL_BG_ACCENT
+        put(1, u, v, PAL_BG_ACCENT)
+
+    # tile 2: trench horizontal stripes (alternating dark/light rows)
+    for v in range(8):
+        for u in range(8):
+            put(2, u, v, PAL_BG_ACCENT if (v & 1) else PAL_BG)
+
+    # tile 3: dirt scatter (a few accent dots inside the cell)
+    fill_solid(3, PAL_BG)
+    for v, u in ((1, 3), (3, 1), (3, 5), (5, 2), (6, 6)):
+        put(3, u, v, PAL_BG_ACCENT)
+
+    # tiles 48..57 = digit glyphs for HUD font. FG pixel = PAL_BORDER (0xFF
+    # white). compositor.sv treats any non-zero pixel as "lit" and emits
+    # RGB_HUD_FG, so any non-zero palette index works.
+    for d, glyph in DIGIT_GLYPHS.items():
+        fill_glyph(DIGIT_TILE_BASE + d, glyph, PAL_BORDER)
 
     return rom
 

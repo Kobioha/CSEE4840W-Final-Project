@@ -44,10 +44,12 @@ static uint8_t entity_to_sprite_id(const entity_t *e) {
 }
 
 /*
- * Level-up scene: player frozen + three yellow squares as option indicators
- * along the top, with a green cursor sprite over the active option. The SSH
- * terminal carries the actual menu text; this is just enough on-screen
- * feedback for the player to see which option the cursor is on.
+ * Level-up scene: player frozen + three weapon-sprite tiles along the top
+ * (each showing the actual sprite of the weapon on offer: mortar diamond /
+ * wire X / gas circle / artillery plus), with a green cursor sprite above
+ * the active option. The SSH terminal still carries the menu text and
+ * level annotations; this gives the player on-screen "what am I picking"
+ * feedback without leaving the VGA monitor.
  */
 static void render_levelup(const game_t *g) {
     const entity_t *p = &g->ents[g->player_i];
@@ -65,9 +67,13 @@ static void render_levelup(const game_t *g) {
     const int y_curs  = 80;
 
     for (int i = 0; i < LEVELUP_OPTIONS; ++i) {
+        int kind = g->levelup_options[i];
+        uint8_t sid = (kind >= 0 && kind < AA_COUNT)
+            ? autoatk_sprite_id(kind)
+            : SPRITE_ID_BULLET;
         nml_sprite_t s = {
             .x = (int16_t)xs[i], .y = (int16_t)y_opt,
-            .sprite_id = SPRITE_ID_BULLET,
+            .sprite_id = sid,
             .flags = NML_FLAGS(/*prio=*/1, 0, 0),
             .palette_off = 0, .reserved = 0,
         };

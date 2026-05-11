@@ -76,6 +76,13 @@ void nml_set_enable(int on) {
     reg_write(NML_REG_CTRL, ctrl);
 }
 
+void nml_set_hud_on(int on) {
+    uint32_t ctrl = reg_read(NML_REG_CTRL);
+    if (on) ctrl |=  NML_CTRL_HUD_ON;
+    else    ctrl &= ~NML_CTRL_HUD_ON;
+    reg_write(NML_REG_CTRL, ctrl);
+}
+
 void nml_write_palette(int idx, uint8_t r, uint8_t g, uint8_t b) {
     if (idx < 0 || idx >= 256) return;
     reg_write(NML_PALETTE_BASE + ((unsigned)idx * 4u),
@@ -126,18 +133,37 @@ void nml_clear_sprites(void) {
     for (int i = 0; i < NML_MAX_SPRITES; ++i) nml_hide_sprite(i);
 }
 
+/* BCD-pack `n` into nibbles for the HW HUD digit lookup. nibble 0 = ones,
+ * nibble 1 = tens, etc. Up to `nibbles` digits; overflow silently wraps. */
+static uint32_t bcd_pack(uint32_t n, int nibbles) {
+    uint32_t out = 0;
+    for (int i = 0; i < nibbles; ++i) {
+        out |= (n % 10u) << (i * 4);
+        n /= 10u;
+    }
+    return out;
+}
+
 void nml_set_player_state(int16_t px, int16_t py,
                           uint8_t hp, uint8_t wave, uint16_t level) {
     reg_write(NML_REG_PLAYER_POS,
               ((uint32_t)(uint16_t)py << 16) | (uint32_t)(uint16_t)px);
+
+    /* Wave is BCD-packed into bits [15:8] so the HW HUD can read 2 digit
+     * nibbles without a binary divider. hp stays binary 0..100 because the
+     * HP bar is a fill-fraction, not a digit string. */
+    uint32_t wave_bcd = bcd_pack((uint32_t)wave, 2);
     reg_write(NML_REG_PLAYER_STATS,
-              (uint32_t)hp           |
-              ((uint32_t)wave  <<  8) |
-              ((uint32_t)level << 16));
+              (uint32_t)hp                  |
+              ((wave_bcd & 0xFFu)    <<  8) |
+              ((uint32_t)level       << 16));
 }
 
 void nml_set_score(uint32_t score, uint32_t kills) {
-    reg_write(NML_REG_SCORE,      score);
+    /* Score is BCD-packed into bits [23:0] (6 digits). Above 999,999 the
+     * top digits silently wrap -- bullet stream caps score well below that. */
+    uint32_t score_bcd = bcd_pack(score, 6);
+    reg_write(NML_REG_SCORE,      score_bcd);
     reg_write(NML_REG_KILL_COUNT, kills);
 }
 
