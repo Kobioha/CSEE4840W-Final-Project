@@ -58,6 +58,8 @@ static void print_wave_start(const game_t *g) {
            g->wave_index + 1, w->total_enemies, w->armed_count,
            w->armed_hp, w->total_enemies - w->armed_count,
            w->enemy_speed, w->spawn_period_frames);
+    printf("    starting bullets=%d  artillery=%d  gas=%d  hp=%d\n",
+           g->ammo, g->artillery_charges, g->gas_charges, g->player_hp);
     fflush(stdout);
 }
 
@@ -238,10 +240,10 @@ int main(void) {
             printf("  wave reached : %d\n", game.wave_index + 1);
             printf("  kills armed  : %d\n", game.kills_armed);
             printf("  kills unarmd : %d\n", game.kills_unarmed);
-            printf("  ammo left    : %d\n", game.ammo);
+            printf("  bullets left : %d\n", game.ammo);
             printf("  art charges  : %d\n", game.artillery_charges);
             printf("  gas charges  : %d\n", game.gas_charges);
-            printf("  ammo drops   : %d\n", game.drops_collected);
+            printf("  bullet drops : %d\n", game.drops_collected);
             printf("  press START to restart\n");
             printf("=================\n\n");
             fflush(stdout);

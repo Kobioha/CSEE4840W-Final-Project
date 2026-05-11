@@ -148,7 +148,7 @@ void render_frame(const game_t *g) {
         slot++;
     }
 
-    printf("frame=%d hp=%d ammo=%d art=%d gas=%d score=%d wave=%d "
+    printf("frame=%d hp=%d bullets=%d art=%d gas=%d score=%d wave=%d "
            "kills(A/U)=%d/%d drops=%d sprite_count=%d state=%d\n",
            g->frame, g->player_hp, g->ammo,
            g->artillery_charges, g->gas_charges, g->score,
