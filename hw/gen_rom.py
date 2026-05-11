@@ -48,10 +48,9 @@ Palette indices used here are mirrored in sw/main.c init_palette_runtime():
     0x21 = tile accent
     0xFF = white (sprite borders)
 
-Run: ``python3 gen_rom.py`` from the hw/ directory.
+Run: ``python3 gen_rom.py`` from the hw/ directory. Tested against the lab
+Python (3.6) so the type hints below stick to syntax that predates PEP 585.
 """
-
-from __future__ import annotations    # so list[int]/dict[str, ...] hints work on Python 3.8
 
 from pathlib import Path
 
@@ -662,7 +661,7 @@ PALETTE_DEPTH = 256
 SPRITE_TABLE_DEPTH = 32
 
 
-def make_palette() -> list[int]:
+def make_palette():
     """24-bit RGB888 entries; default black, key colors set explicitly. Must
        stay in sync with sw/main.c init_palette_runtime() since that overrides
        this table once the C driver opens the device."""
@@ -683,7 +682,7 @@ def make_palette() -> list[int]:
     return pal
 
 
-def make_sprite_table() -> list[int]:
+def make_sprite_table():
     """
     32 entries, 64 bits each, packed as the HW expects.
       W0 [31:0]  = y [31:16] | x [15:0]
@@ -716,7 +715,7 @@ def make_sprite_table() -> list[int]:
     return table
 
 
-def write_hex_words(path: Path, values: list[int], width_bits: int) -> None:
+def write_hex_words(path: Path, values, width_bits: int) -> None:
     nibbles = width_bits // 4
     with path.open("w") as f:
         for v in values:
