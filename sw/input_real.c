@@ -8,8 +8,13 @@
  * without joydev (modules.dep.bin missing, no js0 device), but evdev is
  * built-in and event0 enumerates the moment the gamepad is plugged in.
  *
- * DragonRise default mapping (hid-generic, SNES-style adapter):
- *   B button       -> BTN_THUMB   (0x121)  -> INPUT_FIRE
+ * DragonRise mapping verified against this controller (KIWITATA SNES USB):
+ *   B button       -> BTN_THUMB2  (0x122)  -> INPUT_FIRE_DOWN  (shoot down)
+ *   Y button       -> BTN_TOP     (0x123)  -> INPUT_FIRE_LEFT  (shoot left)
+ *   X button       -> BTN_TRIGGER (0x120)  -> INPUT_FIRE_UP    (shoot up)
+ *   A button       -> BTN_THUMB   (0x121)  -> INPUT_FIRE_RIGHT (shoot right)
+ *   L shoulder     -> BTN_TOP2    (0x124)  -> INPUT_ABIL_ART   (artillery)
+ *   R shoulder     -> BTN_PINKIE  (0x125)  -> INPUT_ABIL_GAS   (gas cloud)
  *   Start          -> BTN_BASE4   (0x129)  -> INPUT_START
  *   Select         -> BTN_BASE3   (0x128)  -> INPUT_SELECT
  *   D-pad X        -> ABS_X       (0x00)   -> INPUT_LEFT / INPUT_RIGHT
@@ -43,9 +48,14 @@
 #define FD_DISABLED      (-2)
 
 /* Button codes -- verified against the DragonRise dump from this controller. */
-#define BTN_CODE_FIRE    BTN_THUMB2    /* 0x122 -- "B" */
-#define BTN_CODE_START   BTN_BASE4     /* 0x129 -- Start */
-#define BTN_CODE_SELECT  BTN_BASE3     /* 0x128 -- Select */
+#define BTN_CODE_FIRE_DOWN   BTN_THUMB2    /* 0x122 -- B */
+#define BTN_CODE_FIRE_LEFT   BTN_TOP       /* 0x123 -- Y */
+#define BTN_CODE_FIRE_UP     BTN_TRIGGER   /* 0x120 -- X */
+#define BTN_CODE_FIRE_RIGHT  BTN_THUMB     /* 0x121 -- A */
+#define BTN_CODE_ABIL_ART    BTN_TOP2      /* 0x124 -- L shoulder */
+#define BTN_CODE_ABIL_GAS    BTN_PINKIE    /* 0x125 -- R shoulder */
+#define BTN_CODE_START       BTN_BASE4     /* 0x129 -- Start */
+#define BTN_CODE_SELECT      BTN_BASE3     /* 0x128 -- Select */
 
 /* D-pad axis codes -- edit if it's reported on ABS_HAT0X/HAT0Y instead. */
 #define ABS_CODE_X       ABS_X
@@ -102,10 +112,15 @@ static void open_device(void) {
 
 static uint16_t button_bit_for(uint16_t code) {
     switch (code) {
-        case BTN_CODE_FIRE:   return INPUT_FIRE;
-        case BTN_CODE_START:  return INPUT_START;
-        case BTN_CODE_SELECT: return INPUT_SELECT;
-        default:              return 0;
+        case BTN_CODE_FIRE_DOWN:  return INPUT_FIRE_DOWN;
+        case BTN_CODE_FIRE_LEFT:  return INPUT_FIRE_LEFT;
+        case BTN_CODE_FIRE_UP:    return INPUT_FIRE_UP;
+        case BTN_CODE_FIRE_RIGHT: return INPUT_FIRE_RIGHT;
+        case BTN_CODE_ABIL_ART:   return INPUT_ABIL_ART;
+        case BTN_CODE_ABIL_GAS:   return INPUT_ABIL_GAS;
+        case BTN_CODE_START:      return INPUT_START;
+        case BTN_CODE_SELECT:     return INPUT_SELECT;
+        default:                  return 0;
     }
 }
 

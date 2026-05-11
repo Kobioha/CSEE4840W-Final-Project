@@ -161,9 +161,13 @@ static void init_palette_runtime(void) {
     nml_write_palette(0x12, 0xFF, 0xFF, 0x00); /* bullet: yellow               */
     nml_write_palette(0x13, 0xFF, 0x80, 0xA0); /* unarmed enemy: pink          */
     nml_write_palette(0x14, 0xFF, 0x80, 0x00); /* mortar: orange               */
-    nml_write_palette(0x15, 0x80, 0x80, 0x80); /* barbed wire: gray            */
+    /* 0x15 (barbed wire gray) retired -- AA_WIRE removed from game. Leaving
+       the palette slot blank since gen_rom.py still ships an X glyph there
+       and Batch B may reclaim it. */
     nml_write_palette(0x16, 0xC0, 0xE0, 0x00); /* mustard gas: yellow-green    */
     nml_write_palette(0x17, 0xFF, 0xFF, 0xE0); /* artillery flash: bright white*/
+    nml_write_palette(0x18, 0x00, 0xC0, 0x40); /* ammo drop placeholder: green */
+    nml_write_palette(0x19, 0xC0, 0x20, 0x20); /* enemy bullet placeholder: red*/
     nml_write_palette(0x20, 0x40, 0x40, 0x40); /* tile bg:  dark gray          */
     nml_write_palette(0x21, 0x60, 0x60, 0x60); /* tile bg accent               */
     nml_write_palette(0xFF, 0xFF, 0xFF, 0xFF); /* sprite border                */
@@ -230,10 +234,14 @@ int main(void) {
 
         if (game.prev_state == STATE_PLAYING && game.state == STATE_GAMEOVER) {
             printf("\n=== GAME OVER ===\n");
-            printf("  score       : %d\n", game.score);
-            printf("  wave reached: %d\n", game.wave_index + 1);
-            printf("  kills armed : %d\n", game.kills_armed);
-            printf("  kills unarmd: %d\n", game.kills_unarmed);
+            printf("  score        : %d\n", game.score);
+            printf("  wave reached : %d\n", game.wave_index + 1);
+            printf("  kills armed  : %d\n", game.kills_armed);
+            printf("  kills unarmd : %d\n", game.kills_unarmed);
+            printf("  ammo left    : %d\n", game.ammo);
+            printf("  art charges  : %d\n", game.artillery_charges);
+            printf("  gas charges  : %d\n", game.gas_charges);
+            printf("  ammo drops   : %d\n", game.drops_collected);
             printf("  press START to restart\n");
             printf("=================\n\n");
             fflush(stdout);

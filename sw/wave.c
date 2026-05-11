@@ -81,7 +81,11 @@ void wave_tick(game_t *g) {
     e->hp     = spawn_armed ? w->armed_hp : 1;
     e->phase  = rand() & 0xff;       /* desync horizontal random-walk across enemies */
     e->ttl    = 0;
+    e->ttl_max = 0;
     e->payload = 0;
+    /* Stagger initial fire cooldown for armed enemies so they don't all fire
+       on the same frame; unarmed enemies never fire so the field is unused. */
+    e->fire_cd = spawn_armed ? (60 + (rand() % 120)) : 0;
 
     g->wave_enemies_spawned++;
     if (spawn_armed) g->wave_armed_remaining--;
@@ -102,4 +106,14 @@ void wave_advance(game_t *g) {
     g->wave_enemies_spawned = 0;
     g->wave_armed_remaining = w->armed_count;
     g->wave_spawn_cooldown  = w->spawn_period_frames;  /* brief pause between waves */
+
+    /* Fully additive refill (capped). Wave-start is the only top-up; mid-wave
+       ammo comes from drops. Picking conservative caps so the player can't
+       hoard infinitely. */
+    g->ammo = g->ammo + AMMO_REFILL_PER_WAVE;
+    if (g->ammo > AMMO_MAX) g->ammo = AMMO_MAX;
+    g->artillery_charges = g->artillery_charges + CHARGES_REFILL_PER_WAVE;
+    if (g->artillery_charges > CHARGE_MAX) g->artillery_charges = CHARGE_MAX;
+    g->gas_charges = g->gas_charges + CHARGES_REFILL_PER_WAVE;
+    if (g->gas_charges > CHARGE_MAX) g->gas_charges = CHARGE_MAX;
 }
