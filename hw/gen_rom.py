@@ -51,6 +51,8 @@ Palette indices used here are mirrored in sw/main.c init_palette_runtime():
 Run: ``python3 gen_rom.py`` from the hw/ directory.
 """
 
+from __future__ import annotations    # so list[int]/dict[str, ...] hints work on Python 3.8
+
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
