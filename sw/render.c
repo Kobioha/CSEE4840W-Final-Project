@@ -151,6 +151,10 @@ void render_init_tilemap(void) {
     }
 }
 
+uint8_t render_debug_tile_for(int row, int col) {
+    return tile_for(row, col);
+}
+
 /* Artillery-beam tile-map state. The visual is a vertical column of
    TILE_BEAM glyphs written into the tile map for ~6 frames; the underlying
    ground tiles are recomputed (not stored) when the beam expires, so no

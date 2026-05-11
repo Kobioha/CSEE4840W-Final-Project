@@ -105,4 +105,10 @@ void nml_set_hud_aux(uint8_t ammo, uint8_t art_charges, uint8_t gas_charges);
 void nml_commit_frame(void);              /* sets SWAP, returns when committed */
 int  nml_in_vblank(void);
 
+/* DEBUG: read back a 32-bit word from NML_TILEMAP_BASE + (byte_offset & ~3).
+ * With the current SV the low byte holds tilemap_ram[mem_waddr] where mem_waddr
+ * comes from avs_address[12:0]; the upper bytes are zero. Used by the startup
+ * probe to verify the address decode + per-byte write path are wired correctly. */
+uint32_t nml_probe_tile_word(unsigned byte_offset);
+
 #endif /* NML_GPU_H */

@@ -136,6 +136,64 @@ static void track_wave_transitions(const game_t *g, wave_tracker_t *t) {
    helper drives both startup paint and the post-game-over restore. Call
    render_init_tilemap() instead of duplicating the layout logic here. */
 
+/* DEBUG: read back tilemap_ram at a curated set of (row,col) and report
+ * whether the stored byte matches what render_init_tilemap() wrote. Each
+ * sample uses a byte_lane=0 offset (col % 4 == 0) so the current SV's
+ * lane-0 readback path is sufficient to surface the stored value. */
+static void debug_probe_tilemap(void) {
+    static const struct { int row; int col; } pts[] = {
+        {0, 0}, {0, 4}, {0, 8}, {0, 76},
+        {1, 0}, {1, 4},
+        {2, 0}, {2, 4},
+        {10, 0}, {20, 0}, {30, 0}, {40, 0},
+        {47, 0}, {50, 0},
+        {51, 0}, {51, 4}, {51, 16},
+        {52, 0}, {52, 4},
+        {59, 0}, {59, 4}, {59, 76},
+    };
+    int n = (int)(sizeof(pts) / sizeof(pts[0]));
+    int matches = 0, zeros = 0, diffs = 0;
+    printf("=== Tile-map probe (after render_init_tilemap) ===\n");
+    for (int i = 0; i < n; i++) {
+        int r = pts[i].row, c = pts[i].col;
+        unsigned byte_off = (unsigned)(r * NML_TILEMAP_COLS + c);
+        uint32_t w = nml_probe_tile_word(byte_off);
+        uint8_t got = (uint8_t)(w & 0xFFu);
+        uint8_t exp = render_debug_tile_for(r, c);
+        const char *tag = (got == exp) ? "OK" : (got == 0 ? "ZERO" : "DIFF");
+        if      (got == exp) matches++;
+        else if (got == 0)   zeros++;
+        else                 diffs++;
+        printf("  off=0x%04x (r=%2d,c=%2d): word=0x%08x got=0x%02x expect=0x%02x [%s]\n",
+               byte_off, r, c, w, got, exp, tag);
+    }
+    printf("  Summary: %d match, %d zero, %d differ\n", matches, zeros, diffs);
+
+    /* Clobber test: prove (or refute) whether a byte_lane=1 write corrupts
+     * the adjacent byte_lane=0 slot. If the bridge presents word-aligned
+     * avs_address with the byte in the correct lane, our HW's
+     * `case(mem_waddr[1:0])` will mis-route the write and clobber lane 0. */
+    nml_write_tile(0, 0, 0xAA);
+    uint32_t before = nml_probe_tile_word(0);
+    nml_write_tile(1, 0, 0xBB);  /* byte_lane=1 */
+    uint32_t after  = nml_probe_tile_word(0);
+    printf("Clobber test: wrote 0xAA at (0,0) then 0xBB at (1,0) [byte_lane=1]\n");
+    printf("  before=0x%08x after=0x%08x\n", before, after);
+    if ((after & 0xFFu) == 0xAA) {
+        printf("  -> lane-0 slot survived. byte_lane=1 write went somewhere else.\n");
+    } else if ((after & 0xFFu) == 0x00) {
+        printf("  -> lane-0 slot was CLOBBERED to 0. Bridge likely word-aligns avs_address.\n");
+    } else if ((after & 0xFFu) == 0xBB) {
+        printf("  -> lane-0 slot got 0xBB. byte_lane=1 write aliased to slot 0.\n");
+    } else {
+        printf("  -> unexpected value 0x%02x. Investigate manually.\n", (unsigned)(after & 0xFFu));
+    }
+    /* Repair so the real init isn't left with garbage at (0,0)/(1,0). */
+    nml_write_tile(0, 0, render_debug_tile_for(0, 0));
+    nml_write_tile(1, 0, render_debug_tile_for(0, 1));
+    fflush(stdout);
+}
+
 static void init_palette_runtime(void) {
     /* Mirrors hw/gen_rom.py palette indices. We rewrite them here so the SW
      * remains the authoritative source of palette data once the C driver is
@@ -178,6 +236,7 @@ int main(void) {
     }
     init_palette_runtime();
     render_init_tilemap();
+    debug_probe_tilemap();
     nml_set_enable(1);
     nml_set_hud_on(1);
 #endif

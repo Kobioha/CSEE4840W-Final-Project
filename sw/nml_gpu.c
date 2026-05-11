@@ -176,6 +176,11 @@ int nml_in_vblank(void) {
     return (reg_read(NML_REG_STATUS) & NML_STATUS_VBLANK) ? 1 : 0;
 }
 
+uint32_t nml_probe_tile_word(unsigned byte_offset) {
+    unsigned word_off = byte_offset & ~0x3u;
+    return reg_read(NML_TILEMAP_BASE + word_off);
+}
+
 void nml_commit_frame(void) {
     /* Set SWAP; HW auto-clears it. Wait until SWAP_PENDING falls (commit
      * happened on the next vsync). Cap the wait so a stuck pipeline doesn't
