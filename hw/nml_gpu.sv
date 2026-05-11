@@ -143,7 +143,16 @@ module nml_gpu (
     logic [31:0] tilemap_rdata_sw;
 
     always_ff @(posedge clk) begin
-        if (tilemap_we) tilemap_ram[mem_waddr] <= mem_wdata[7:0];
+        if (tilemap_we) begin
+            // SW emits byte writes (STRB) so avs_address[1:0] -> mem_waddr[1:0]
+            // selects which 8-bit lane of mem_wdata holds the new tile byte.
+            case (mem_waddr[1:0])
+                2'b00: tilemap_ram[mem_waddr] <= mem_wdata[7:0];
+                2'b01: tilemap_ram[mem_waddr] <= mem_wdata[15:8];
+                2'b10: tilemap_ram[mem_waddr] <= mem_wdata[23:16];
+                2'b11: tilemap_ram[mem_waddr] <= mem_wdata[31:24];
+            endcase
+        end
         tilemap_rdata_sw <= {24'd0, tilemap_ram[mem_waddr]};
     end
     always_ff @(posedge pix_clk) tilemap_rdata <= tilemap_ram[tilemap_raddr];

@@ -93,14 +93,9 @@ void nml_write_tile(int col, int row, uint8_t tile_id) {
     if (col < 0 || col >= NML_TILEMAP_COLS) return;
     if (row < 0 || row >= NML_TILEMAP_ROWS) return;
     unsigned offset = NML_TILEMAP_BASE + (unsigned)(row * NML_TILEMAP_COLS + col);
-    /* Tile map is byte-addressable from HW's perspective but the LW bridge
-     * is 32-bit only. Read-modify-write the containing word. */
-    unsigned word_off  = offset & ~0x3u;
-    unsigned byte_lane = offset & 0x3u;
-    uint32_t w = reg_read(word_off);
-    w &= ~(0xFFu << (byte_lane * 8));
-    w |=  ((uint32_t)tile_id << (byte_lane * 8));
-    reg_write(word_off, w);
+    /* Byte write: ARM emits STRB, the LW bridge sets avs_byteenable for the
+     * targeted lane, and the HW selects that lane via avs_address[1:0]. */
+    *((volatile uint8_t *)g_base + offset) = tile_id;
 }
 
 void nml_write_sprite(int slot, const nml_sprite_t *s) {

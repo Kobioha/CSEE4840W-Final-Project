@@ -118,7 +118,8 @@ module avalon_slave_iface (
     assign region_palette = (avs_address[13:10] == 4'h1) &&
                             (avs_address[9:8]  != 2'b00 ||
                              avs_address[13:10] == 4'h1);           // 0x400-0x7FF
-    assign region_tilemap = (avs_address[13] == 1'b1);              // 0x1000-0x3FFF
+    assign region_tilemap = (avs_address >= 14'h1000) &&
+                            (avs_address <  14'h22C0);              // 0x1000-0x22BF
 
     // Sprite table: 32 entries × 8B; SW address [7:2] = word index (0-63 words → 32 entries × 2 words)
     // Palette:      256 entries × 4B; SW address [9:2] = entry index
