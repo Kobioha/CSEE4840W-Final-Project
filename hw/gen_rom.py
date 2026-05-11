@@ -70,8 +70,16 @@ PAL_GAS          = 0x16
 PAL_ARTILLERY    = 0x17
 PAL_AMMO_DROP    = 0x18
 PAL_ENEMY_BULLET = 0x19
-PAL_BG           = 0x20
-PAL_BG_ACCENT    = 0x21
+# Battlefield ground palette (top-down view, pixel-art style):
+PAL_BG           = 0x20   # PAL_DIRT_MID    — primary dirt color
+PAL_BG_ACCENT    = 0x21   # PAL_DIRT_LIGHT  — dirt highlight
+PAL_DIRT_MID     = 0x20
+PAL_DIRT_LIGHT   = 0x21
+PAL_DIRT_DARK    = 0x22
+PAL_GRASS_MID    = 0x23
+PAL_GRASS_DARK   = 0x24
+PAL_GRASS_LIGHT  = 0x25
+PAL_MUD_DEEP     = 0x26
 PAL_BORDER       = 0xFF
 
 
@@ -417,66 +425,84 @@ COLON_TILE_ID      = 42
 SPACE_TILE_ID      = 43
 BEAM_TILE_ID       = 11   # artillery beam glyph (vertical white line)
 
-# Battlefield background tile glyphs. Each cell is 8x8 like the letters. Uses
-# PAL_BG (dark gray) for the field, PAL_BG_ACCENT (lighter gray) for accents.
-# In the glyph strings: '#' = accent (lit), '.' = background fill.
+# Battlefield ground tiles (top-down view, pixel-art style inspired by the
+# brown-dirt + green-grass mosaic look of period RPG tilesets). Each cell is
+# 8x8 and uses up to 6 palette colors. The legend maps each glyph char to a
+# palette index:
+#   'M' = PAL_DIRT_MID    (mid brown, primary dirt)
+#   'D' = PAL_DIRT_DARK   (darker mud splotches)
+#   'L' = PAL_DIRT_LIGHT  (sandy-tan dirt highlight)
+#   'G' = PAL_GRASS_MID   (primary grass green)
+#   'g' = PAL_GRASS_DARK  (shadowed grass / dense clump)
+#   'h' = PAL_GRASS_LIGHT (highlight / new growth)
+#   'm' = PAL_MUD_DEEP    (very dark mud puddle interior)
+GROUND_LEGEND = {
+    'M': PAL_DIRT_MID,
+    'D': PAL_DIRT_DARK,
+    'L': PAL_DIRT_LIGHT,
+    'G': PAL_GRASS_MID,
+    'g': PAL_GRASS_DARK,
+    'h': PAL_GRASS_LIGHT,
+    'm': PAL_MUD_DEEP,
+}
+
 BATTLEFIELD_GLYPHS = {
-    4:  ("########",   # crater
-         "#......#",
-         "#.####.#",
-         "#.#..#.#",
-         "#.#..#.#",
-         "#.####.#",
-         "#......#",
-         "########"),
-    5:  ("########",   # sandbag stack: horizontal mortar lines
-         "##.##.##",
-         "########",
-         "#.##.##.",
-         "########",
-         "##.##.##",
-         "########",
-         "#.##.##."),
-    6:  ("...##...",   # trench-edge vertical
-         "...##...",
-         "...##...",
-         "########",
-         "########",
-         "...##...",
-         "...##...",
-         "...##..."),
-    7:  (".#....#.",   # barbed-wire fence X (reuses the deleted wire visual)
-         "..#..#..",
-         "...##...",
-         "...##...",
-         "...##...",
-         "...##...",
-         "..#..#..",
-         ".#....#."),
-    8:  ("##......",   # mud diagonal streaks
-         "###.....",
-         ".###....",
-         "..###...",
-         "...###..",
-         "....###.",
-         ".....###",
-         "......##"),
-    9:  (".######.",   # shell-hole (small crater)
-         "##....##",
-         "#......#",
-         "#......#",
-         "#......#",
-         "#......#",
-         "##....##",
-         ".######."),
-   10:  ("#.#.#.#.",   # dirt rubble
-         ".#.#.#.#",
-         "#.#.#.#.",
-         ".#.#.#.#",
-         "#.#.#.#.",
-         ".#.#.#.#",
-         "#.#.#.#.",
-         ".#.#.#.#"),
+    4:  ("MMMDMMLM",   # dirt_a: mostly mid-brown with sparse dark/light specks
+         "MDMMMMMM",
+         "MMMMDMMM",
+         "MLMMMMDM",
+         "MMMDMMMM",
+         "MMMMMLMM",
+         "DMMMMMMM",
+         "MMMMDMML"),
+    5:  ("MMLMMMDM",   # dirt_b: same palette, different scatter to break tiling
+         "DMMMDMML",
+         "MMMMMMMM",
+         "MMMMMLDM",
+         "MLMMMMMM",
+         "MMMDMMMM",
+         "MMMMMMDM",
+         "MDMMLMMM"),
+    6:  ("GGgGGGGh",   # grass_a: mostly mid-green with shadow + highlight specks
+         "GGGGgGGG",
+         "GhGGGGGG",
+         "GGGGGgGh",
+         "GGgGGGGG",
+         "GGGhGGGG",
+         "gGGGGGGG",
+         "GGGGgGhG"),
+    7:  ("GGGGhGGG",   # grass_b: different scatter
+         "GgGGGGGG",
+         "GGGGGGgG",
+         "hGGGGGGh",
+         "GGGGgGGG",
+         "GGgGGGhG",
+         "GGGGGGGG",
+         "GhGGgGGG"),
+    8:  ("MMMMGGGG",   # transition: dirt on left, grass on right
+         "MMMMGGGG",
+         "MDMMGgGG",
+         "MMMMGGGG",
+         "MMLMGGgG",
+         "MMMMhGGG",
+         "MDMMGGGG",
+         "MMMMGGGG"),
+    9:  ("MMDDDDMM",   # mud puddle: dark wet crater
+         "MDmmmDDM",
+         "DmmmmmDM",
+         "DmmDmmDD",
+         "DmmmmmDD",
+         "MDmmmDDM",
+         "MDDDDDMM",
+         "MMMMMMMM"),
+   10:  ("ghGGgGhG",   # grass_dense: lush patch
+         "GGghGGgG",
+         "gGGGhGGG",
+         "GgGGGgGh",
+         "GhGgGGGG",
+         "GGGGGhgG",
+         "gGhGGGGg",
+         "GGGgGhGG"),
 }
 
 # Vertical beam tile: 2-px-wide bright line spanning the full 8x8 cell, with
@@ -601,6 +627,15 @@ def make_tile_rom() -> bytearray:
             for u in range(8):
                 put(slot, u, v, fg if glyph[v][u] == '#' else bg)
 
+    def fill_multicolor(slot: int, glyph: tuple, legend: dict) -> None:
+        # Multi-color tile: each glyph char maps to a palette index via `legend`.
+        # Any char missing from the legend is treated as PAL_BG so tiles can
+        # safely include "fallback" pixels.
+        for v in range(8):
+            for u in range(8):
+                ch = glyph[v][u]
+                put(slot, u, v, legend.get(ch, PAL_BG))
+
     # tile 0: solid background
     fill_solid(0, PAL_BG)
 
@@ -619,10 +654,10 @@ def make_tile_rom() -> bytearray:
     for v, u in ((1, 3), (3, 1), (3, 5), (5, 2), (6, 6)):
         put(3, u, v, PAL_BG_ACCENT)
 
-    # tiles 4..10 = battlefield mosaic. Lit cells use PAL_BG_ACCENT, gaps use
-    # PAL_BG, so the result is opaque and contiguous with tile 0/1 fills.
+    # tiles 4..10 = battlefield ground mosaic (grass + dirt with mud accents).
+    # Multi-color tiles using GROUND_LEGEND for palette mapping.
     for slot, glyph in BATTLEFIELD_GLYPHS.items():
-        fill_bg_glyph(slot, glyph, PAL_BG_ACCENT, PAL_BG)
+        fill_multicolor(slot, glyph, GROUND_LEGEND)
 
     # tile 11 = artillery beam (vertical white line). HUD-style: leave non-lit
     # pixels transparent so the beam can be overlaid on existing background
@@ -676,11 +711,16 @@ def make_palette():
     pal[PAL_ARTILLERY]    = 0xFFFFE0   # bright white
     pal[PAL_AMMO_DROP]    = 0x00C040   # ammo crate green
     pal[PAL_ENEMY_BULLET] = 0xC02020   # enemy bullet red
-    # Battlefield brown + tan; high contrast pair so the dirt/trench tiles
-    # actually read on the VGA monitor (the previous 0x40/0x60 grays were
-    # too close to see).
-    pal[PAL_BG]           = 0x3A2A1E   # dark mud brown
-    pal[PAL_BG_ACCENT]    = 0xB08850   # sandy tan
+    # Battlefield ground palette: brown dirt (3 shades) + green grass (3 shades)
+    # + deep mud. Inspired by retro pixel-art tilesets where saturated earth
+    # tones read clearly against the player/enemy sprites.
+    pal[PAL_DIRT_MID]     = 0x6B4423   # mid brown (primary dirt)
+    pal[PAL_DIRT_LIGHT]   = 0x9B7142   # sandy tan highlight
+    pal[PAL_DIRT_DARK]    = 0x3A2515   # dark wet earth
+    pal[PAL_GRASS_MID]    = 0x5A8B2E   # mid grass green (primary grass)
+    pal[PAL_GRASS_DARK]   = 0x3D5A1F   # shadowed grass
+    pal[PAL_GRASS_LIGHT]  = 0x8FBC3E   # highlight / new growth
+    pal[PAL_MUD_DEEP]     = 0x1A0F08   # mud puddle interior
     pal[PAL_BORDER]       = 0xFFFFFF   # white (sprite borders)
     return pal
 

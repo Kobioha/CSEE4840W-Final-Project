@@ -124,6 +124,12 @@ typedef struct{
   int art_input_cd;       /* L-button post-fire lockout, frames */
   int gas_input_cd;       /* R-button post-fire lockout, frames */
   int drops_collected;    /* lifetime stat for the game-over log */
+
+  /* Artillery beam visual state (Batch C). beam_ttl counts down each frame
+     while the tile-map beam column is drawn; render.c saves/restores the
+     underlying tiles based on this lifecycle. */
+  int beam_ttl;
+  int beam_col;           /* tile-map column (0..NML_TILEMAP_COLS) */
 } game_t;
 
 /* Ammo / charge tuning. */

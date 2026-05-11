@@ -30,8 +30,9 @@ static const int PERIOD_STEP[AA_COUNT] = {
 #define GAS_H_MAX       32
 #define GAS_BASE_HITPAD 4    /* small additive pad on top of size-derived box */
 
-/* Artillery beam visual: how many stacked sprites and their TTL. */
-#define BEAM_VISUAL_SPRITES 5
+/* Artillery beam: how many frames the tile-map beam stays visible. The
+   visual itself is a column of tile-11 (vertical white line) glyphs written
+   into the tile map by render.c when g->beam_ttl > 0. */
 #define BEAM_VISUAL_TTL     6
 #define ARTILLERY_KILL_DMG  999
 
@@ -192,12 +193,13 @@ int autoatk_gas_overlaps(const entity_t *e, int tx, int ty) {
 }
 
 /* Player-triggered artillery: instant column kill from the player upward,
-   plus a brief stacked-bullet visual streak. Routes the kill through
-   apply_damage() so ammo-drop probability + score bookkeeping stay
-   consistent with bullet/mortar kills. */
+   plus a tile-map beam visual that render.c paints into the tilemap for
+   BEAM_VISUAL_TTL frames. Routes the kill through apply_damage() so
+   ammo-drop probability + score bookkeeping stay consistent with bullet
+   and mortar kills. */
 int autoatk_fire_artillery(game_t *g) {
     const entity_t *p = &g->ents[g->player_i];
-    int beam_x = p->x;   /* left edge of 16-px beam column */
+    int beam_x = p->x;   /* left edge of 16-px-wide beam column */
 
     for (int i = 0; i < MAX_ENTITIES; i++) {
         entity_t *e = &g->ents[i];
@@ -208,12 +210,11 @@ int autoatk_fire_artillery(game_t *g) {
         apply_damage(g, e, ARTILLERY_KILL_DMG);
     }
 
-    /* Emit visual streak: 5 stacked sprites going up from just above player. */
-    for (int k = 1; k <= BEAM_VISUAL_SPRITES; k++) {
-        int sy = p->y - 16 * k;
-        if (sy < 0) break;
-        emit_proj(g, ENT_AUTO_PROJ, beam_x, sy, 0, 0, BEAM_VISUAL_TTL, AA_ARTILLERY);
-    }
+    /* Mark the beam visual. render.c owns the actual tile-map writes (and
+       restores the underlying ground tiles when beam_ttl drops to 0). */
+    g->beam_col = (p->x + 8) / 8;          /* tile column at player's center */
+    g->beam_ttl = BEAM_VISUAL_TTL + 1;     /* +1 because game_tick decrements
+                                              before render reads it          */
     return 1;
 }
 

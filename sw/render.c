@@ -14,23 +14,34 @@
 #include "autoatk.h"
 #include "nml_gpu.h"
 
+#include <stdio.h>
+#include <string.h>
+
+/* Tile slots from hw/gen_rom.py BATTLEFIELD_GLYPHS + letter/digit tables. */
+#define TILE_BLANK_BG       0
+#define TILE_DIRT_A         4
+#define TILE_DIRT_B         5
+#define TILE_GRASS_A        6
+#define TILE_GRASS_B        7
+#define TILE_TRANSITION     8
+#define TILE_MUD_PUDDLE     9
+#define TILE_GRASS_DENSE    10
+#define TILE_BEAM           11
+#define TILE_LETTER_BASE    16   /* 'A' -> 16, 'Z' -> 41 */
+#define TILE_COLON          42
+#define TILE_SPACE          43
+#define TILE_DIGIT_BASE     48   /* '0' -> 48, '9' -> 57 */
+
 #define SPRITE_ID_PLAYER         1
 #define SPRITE_ID_ENEMY_ARMED    2
 #define SPRITE_ID_BULLET         3
 #define SPRITE_ID_ENEMY_UNARMED  4
 #define SPRITE_ID_MORTAR         5
-/* Sprite ID 6 (barbed wire) retired this batch -- no game-side dispatch
-   targets it any longer. Batch B may reuse the ROM slot. */
+/* Sprite ID 6 (barbed wire) retired -- AA_WIRE removed in Batch A. */
 #define SPRITE_ID_GAS            7
 #define SPRITE_ID_ARTILLERY      8
-
-/* Placeholder palette offsets until Batch B gives ammo / enemy bullet their
-   own sprite art. Offset is added to the sprite-pixel index to recolor a
-   stock sprite. Hardware ignores the offset when the base index is 0
-   (transparent). Values chosen so the existing yellow bullet sprite tints
-   green for ammo drops and red for enemy bullets. */
-#define PALETTE_OFF_AMMO_DROP    0x06  /* 0x12 yellow + 6 -> green-ish */
-#define PALETTE_OFF_ENEMY_BULLET 0xFE  /* (-2 mod 256) yellow -> red   */
+#define SPRITE_ID_AMMO           9   /* green ammo crate (Batch B sprite art) */
+#define SPRITE_ID_ENEMY_BULLET   10  /* red dot for incoming enemy fire       */
 
 static uint8_t autoatk_sprite_id(int payload) {
     switch (payload) {
@@ -47,8 +58,8 @@ static uint8_t entity_to_sprite_id(const entity_t *e) {
         case ENT_ENEMY_ARMED:   return SPRITE_ID_ENEMY_ARMED;
         case ENT_ENEMY_UNARMED: return SPRITE_ID_ENEMY_UNARMED;
         case ENT_BULLET:        return SPRITE_ID_BULLET;
-        case ENT_ENEMY_BULLET:  return SPRITE_ID_BULLET;
-        case ENT_AMMO_DROP:     return SPRITE_ID_BULLET;
+        case ENT_ENEMY_BULLET:  return SPRITE_ID_ENEMY_BULLET;
+        case ENT_AMMO_DROP:     return SPRITE_ID_AMMO;
         case ENT_AUTO_PROJ:
         case ENT_HAZARD:        return autoatk_sprite_id(e->payload);
         default:                return 0;
@@ -56,8 +67,9 @@ static uint8_t entity_to_sprite_id(const entity_t *e) {
 }
 
 static uint8_t entity_palette_off(const entity_t *e) {
-    if (e->kind == ENT_AMMO_DROP)    return PALETTE_OFF_AMMO_DROP;
-    if (e->kind == ENT_ENEMY_BULLET) return PALETTE_OFF_ENEMY_BULLET;
+    (void)e;
+    /* All entities now have dedicated sprite art with native palette colors;
+       palette-offset shifting from Batch A is retired. */
     return 0;
 }
 
@@ -96,6 +108,116 @@ static void emit_gas_cluster(const entity_t *e, int *slot_inout) {
     if (h >= 24) {
         emit_sprite(slot_inout, cx, cy - 10, SPRITE_ID_GAS, 0, 1);   /* top */
     }
+}
+
+/* -----------------------------------------------------------------------
+ * Tile-map helpers: ground init, artillery beam, on-screen text.
+ * Owned by render.c so the FPGA-only nml_write_tile() / nml_gpu.h surface
+ * stays out of game.c and main.c.
+ * --------------------------------------------------------------------- */
+
+/* Same coarse-noise function used to populate the battlefield at startup.
+   Exposed via tile_for(row, col) so the beam save/restore and game-over
+   restore can recompute any cell without keeping a shadow copy. */
+static uint8_t tile_for(int row, int col) {
+    unsigned zone = ((unsigned)(row / 8) * 7u +
+                     (unsigned)(col / 10) * 11u) % 5u;
+    int favor_grass = (zone == 1 || zone == 3);
+
+    unsigned r = ((unsigned)(row * 17 + col * 31) >> 1) & 31u;
+
+    if (favor_grass) {
+        if      (r < 16) return TILE_GRASS_A;
+        else if (r < 22) return TILE_GRASS_B;
+        else if (r < 26) return TILE_GRASS_DENSE;
+        else if (r < 28) return TILE_DIRT_A;
+        else if (r < 30) return TILE_TRANSITION;
+        else             return TILE_MUD_PUDDLE;
+    } else {
+        if      (r < 16) return TILE_DIRT_A;
+        else if (r < 22) return TILE_DIRT_B;
+        else if (r < 26) return TILE_TRANSITION;
+        else if (r < 28) return TILE_GRASS_A;
+        else if (r < 30) return TILE_MUD_PUDDLE;
+        else             return TILE_GRASS_DENSE;
+    }
+}
+
+void render_init_tilemap(void) {
+    for (int row = 0; row < NML_TILEMAP_ROWS; ++row) {
+        for (int col = 0; col < NML_TILEMAP_COLS; ++col) {
+            nml_write_tile(col, row, tile_for(row, col));
+        }
+    }
+}
+
+/* Artillery-beam tile-map state. The visual is a vertical column of
+   TILE_BEAM glyphs written into the tile map for ~6 frames; the underlying
+   ground tiles are recomputed (not stored) when the beam expires, so no
+   per-cell shadow buffer is needed. */
+static int s_beam_drawn      = 0;   /* 1 = beam column currently overwritten */
+static int s_beam_drawn_col  = -1;  /* the column we overwrote               */
+
+static void beam_paint_column(int col) {
+    if (col < 0 || col >= NML_TILEMAP_COLS) return;
+    /* Paint from just below the HUD strip (row 2 = y=16+) down to the row
+       above the player's current tile. Painting all the way to the bottom
+       reads better -- gives the player visual confirmation the beam reached
+       deep into the field. */
+    for (int row = 2; row < NML_TILEMAP_ROWS; ++row) {
+        nml_write_tile(col, row, TILE_BEAM);
+    }
+}
+
+static void beam_restore_column(int col) {
+    if (col < 0 || col >= NML_TILEMAP_COLS) return;
+    for (int row = 2; row < NML_TILEMAP_ROWS; ++row) {
+        nml_write_tile(col, row, tile_for(row, col));
+    }
+}
+
+/* Maintain beam_drawn state machine from the game's beam_ttl signal. */
+static void beam_update(const game_t *g) {
+    if (g->beam_ttl > 0 && !s_beam_drawn) {
+        s_beam_drawn_col = g->beam_col;
+        beam_paint_column(s_beam_drawn_col);
+        s_beam_drawn = 1;
+    } else if (g->beam_ttl == 0 && s_beam_drawn) {
+        beam_restore_column(s_beam_drawn_col);
+        s_beam_drawn = 0;
+        s_beam_drawn_col = -1;
+    }
+}
+
+/* Map an ASCII char to a tile slot. Unknown chars fall through to blank bg
+   (tile 0) so the caller can include punctuation/whitespace freely. */
+static uint8_t ascii_to_tile(char c) {
+    if (c >= 'A' && c <= 'Z') return (uint8_t)(TILE_LETTER_BASE + (c - 'A'));
+    if (c >= 'a' && c <= 'z') return (uint8_t)(TILE_LETTER_BASE + (c - 'a'));
+    if (c >= '0' && c <= '9') return (uint8_t)(TILE_DIGIT_BASE  + (c - '0'));
+    if (c == ':')             return TILE_COLON;
+    if (c == ' ')             return TILE_SPACE;
+    return TILE_BLANK_BG;
+}
+
+/* Write a string into the tile map, left-aligned at (row, col). Out-of-range
+   cells are silently skipped. */
+static void draw_text_at(int row, int col, const char *s) {
+    int len = (int)strlen(s);
+    for (int i = 0; i < len; ++i) {
+        int c = col + i;
+        if (c < 0) continue;
+        if (c >= NML_TILEMAP_COLS) break;
+        nml_write_tile(c, row, ascii_to_tile(s[i]));
+    }
+}
+
+/* Center the string on `row` so it sits at the horizontal midpoint of the
+   80-column tile map. */
+static void draw_text_centered(int row, const char *s) {
+    int len = (int)strlen(s);
+    int col = (NML_TILEMAP_COLS - len) / 2;
+    draw_text_at(row, col, s);
 }
 
 /*
@@ -161,51 +283,93 @@ static void render_levelup(const game_t *g) {
 }
 
 /*
- * Game-over screen: lay out a 5-sprite X centered on the screen using bullet
- * sprites. Batch C replaces this with on-screen text rendered via the tile
- * map once letter glyphs land in tile ROM.
+ * Game-over screen: draw a centered block of text directly into the tile
+ * map. Letter glyphs live at tile slots 16..41 (A..Z), digits at 48..57,
+ * colon at 42, blank at 43. The block lays out as:
+ *
+ *     GAME OVER
+ *
+ *     SCORE: NNNNNN
+ *     WAVE:  NN
+ *     KILLS A: NN
+ *     KILLS U: NN
+ *
+ *     PRESS START
+ *
+ * Vertical center of the playfield is row ~30. We anchor the block around
+ * row 24 so it sits comfortably above center.
  */
 static void render_game_over(const game_t *g) {
-    const int cx = SCREEN_W / 2 - 8;   /* sprites are 16x16; offset to center */
-    const int cy = SCREEN_H / 2 - 8;
-    const int step = 20;
+    /* Cap displayable score at 999999 to fit the 6-digit slot consistently
+       with the HUD score readout. */
+    int score = g->score;
+    if (score < 0)       score = 0;
+    if (score > 999999)  score = 999999;
+    int wave_n  = g->wave_index + 1;
+    if (wave_n  > 99) wave_n = 99;
+    int ka      = g->kills_armed;   if (ka > 99) ka = 99;
+    int ku      = g->kills_unarmed; if (ku > 99) ku = 99;
 
-    const int xs[5] = { cx,           cx - step, cx + step, cx - step, cx + step };
-    const int ys[5] = { cy,           cy - step, cy - step, cy + step, cy + step };
+    char buf[40];
 
-    /* Slot 0 was always the player; replace with first X-arm. */
-    for (int i = 0; i < 5; ++i) {
-        nml_sprite_t s = {
-            .x           = (int16_t)xs[i],
-            .y           = (int16_t)ys[i],
-            .sprite_id   = SPRITE_ID_BULLET,
-            .flags       = NML_FLAGS(/*prio=*/0, /*hflip=*/0, /*vflip=*/0),
-            .palette_off = 0,
-            .reserved    = 0,
-        };
-        nml_write_sprite(i, &s);
-    }
+    draw_text_centered(22, "GAME OVER");
 
-    /* Hide the rest. */
-    for (int slot = 5; slot < NML_MAX_SPRITES; ++slot) {
+    snprintf(buf, sizeof(buf), "SCORE: %06d", score);
+    draw_text_centered(24, buf);
+
+    snprintf(buf, sizeof(buf), "WAVE:  %02d", wave_n);
+    draw_text_centered(25, buf);
+
+    snprintf(buf, sizeof(buf), "KILLS A: %02d", ka);
+    draw_text_centered(26, buf);
+
+    snprintf(buf, sizeof(buf), "KILLS U: %02d", ku);
+    draw_text_centered(27, buf);
+
+    draw_text_centered(29, "PRESS START");
+
+    /* Hide every sprite slot so nothing draws over the text. */
+    for (int slot = 0; slot < NML_MAX_SPRITES; ++slot) {
         nml_hide_sprite(slot);
     }
 
-    /* Still publish the final score for the HUD. */
+    /* HUD still shows the final values (HP=0, ammo=0, etc.). */
     nml_set_player_state(0, 0, 0, /*wave=*/0, /*level=*/0);
     nml_set_score((uint32_t)g->score, /*kills=*/0u);
     nml_set_hud_aux(0, 0, 0);
 }
 
 void render_frame(const game_t *g) {
+    /* Track state to drive one-shot tile-map restores. The game-over screen
+       overwrites the battlefield with stat text; on the GAMEOVER -> PLAYING
+       restart we re-init the whole tile map. The artillery beam follows the
+       same save/restore pattern but is column-scoped. */
+    static game_state_t s_prev_state = STATE_PLAYING;
+    if (s_prev_state == STATE_GAMEOVER && g->state == STATE_PLAYING) {
+        /* If the beam was mid-flash when the game ended, drop our shadow
+           state so the next fire doesn't double-restore. */
+        s_beam_drawn     = 0;
+        s_beam_drawn_col = -1;
+        render_init_tilemap();
+    }
+    s_prev_state = g->state;
+
     if (g->state == STATE_GAMEOVER) {
         render_game_over(g);
         return;
     }
     if (g->state == STATE_LEVELUP) {
+        /* Pause the beam visual during LEVELUP so it doesn't ghost across
+           the menu. STATE_LEVELUP can only fire after a wave clears, and
+           beam_ttl is short enough that it usually expires before then. */
+        beam_update(g);
         render_levelup(g);
         return;
     }
+
+    /* Update the artillery-beam tile column. Must run BEFORE we draw sprites
+       so the new tile state takes effect on the same frame. */
+    beam_update(g);
 
     /* Slot 0 = player, always written. */
     const entity_t *p = &g->ents[g->player_i];

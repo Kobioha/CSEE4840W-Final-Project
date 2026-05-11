@@ -80,6 +80,8 @@ void game_init(game_t *g) {
     g->art_input_cd      = 0;
     g->gas_input_cd      = 0;
     g->drops_collected   = 0;
+    g->beam_ttl          = 0;
+    g->beam_col          = 0;
 
     g->player_i = spawn_entity(g, ENT_PLAYER, SCREEN_W / 2, SCREEN_H - 60);
 
@@ -150,6 +152,7 @@ static void update_player(game_t *g, uint16_t input) {
     if (g->fire_cooldown > 0) g->fire_cooldown--;
     if (g->art_input_cd  > 0) g->art_input_cd--;
     if (g->gas_input_cd  > 0) g->gas_input_cd--;
+    if (g->beam_ttl      > 0) g->beam_ttl--;
 
     /* Four-direction face-button fire. Bullets spawn just outside the player
        sprite on the firing side so they don't immediately self-collide. */

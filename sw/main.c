@@ -132,31 +132,9 @@ static void track_wave_transitions(const game_t *g, wave_tracker_t *t) {
 }
 
 #ifndef NML_TERMINAL_BUILD
-static void init_tilemap_runtime(void) {
-    /* Battlefield mosaic from the existing tile glyphs. Slots:
-     *   0 = solid bg, 1 = bg with corner accents, 2 = horizontal stripes
-     *   (trench feel), 3 = dirt scatter.
-     * Densities chosen to be obviously textured against the new palette
-     * contrast in init_palette_runtime() (brown bg, tan accents). After
-     * Batch B ships and Batch C runs, this gets replaced with the new
-     * battlefield tile slots (4..10). */
-    for (int row = 0; row < NML_TILEMAP_ROWS; ++row) {
-        for (int col = 0; col < NML_TILEMAP_COLS; ++col) {
-            uint8_t tile_id;
-            if (row >= NML_TILEMAP_ROWS - 6) {
-                /* Bottom 6 rows: alternating trench stripes + accent rows. */
-                tile_id = (row & 1) ? 2 : 1;
-            } else if ((row * 13 + col * 7) % 5 == 0) {
-                tile_id = 3;                                   /* dirt scatter (~20%) */
-            } else if ((row * 5 + col * 3) % 11 == 0) {
-                tile_id = 1;                                   /* corner-accent tile (~9%) */
-            } else {
-                tile_id = 0;                                   /* plain bg */
-            }
-            nml_write_tile(col, row, tile_id);
-        }
-    }
-}
+/* The battlefield-ground init lives in render.c so the same tile_for()
+   helper drives both startup paint and the post-game-over restore. Call
+   render_init_tilemap() instead of duplicating the layout logic here. */
 
 static void init_palette_runtime(void) {
     /* Mirrors hw/gen_rom.py palette indices. We rewrite them here so the SW
@@ -175,12 +153,17 @@ static void init_palette_runtime(void) {
     nml_write_palette(0x17, 0xFF, 0xFF, 0xE0); /* artillery flash: bright white*/
     nml_write_palette(0x18, 0x00, 0xC0, 0x40); /* ammo drop placeholder: green */
     nml_write_palette(0x19, 0xC0, 0x20, 0x20); /* enemy bullet placeholder: red*/
-    /* Battlefield palette: warm brown background + sandy-tan accent. The
-       previous 0x40/0x60 gray pair was too low-contrast to register on the
-       VGA monitor; this pairing reads as "dirt + sand" and makes the dirt
-       scatter / trench stripes actually visible. */
-    nml_write_palette(0x20, 0x3A, 0x2A, 0x1E); /* tile bg:  dark mud brown     */
-    nml_write_palette(0x21, 0xB0, 0x88, 0x50); /* tile bg accent: sandy tan    */
+    /* Battlefield ground palette: brown dirt (3 shades) + green grass (3
+       shades) + deep mud. Inspired by retro pixel-art tilesets — saturated
+       earth tones read clearly behind the player/enemy sprites. Keep in
+       sync with the same palette block in hw/gen_rom.py make_palette(). */
+    nml_write_palette(0x20, 0x6B, 0x44, 0x23); /* PAL_DIRT_MID:   mid brown    */
+    nml_write_palette(0x21, 0x9B, 0x71, 0x42); /* PAL_DIRT_LIGHT: sandy tan    */
+    nml_write_palette(0x22, 0x3A, 0x25, 0x15); /* PAL_DIRT_DARK:  dark earth   */
+    nml_write_palette(0x23, 0x5A, 0x8B, 0x2E); /* PAL_GRASS_MID:  primary grass*/
+    nml_write_palette(0x24, 0x3D, 0x5A, 0x1F); /* PAL_GRASS_DARK: shadowed grass*/
+    nml_write_palette(0x25, 0x8F, 0xBC, 0x3E); /* PAL_GRASS_LIGHT:new growth   */
+    nml_write_palette(0x26, 0x1A, 0x0F, 0x08); /* PAL_MUD_DEEP:   puddle dark  */
     nml_write_palette(0xFF, 0xFF, 0xFF, 0xFF); /* sprite border                */
 }
 #endif
@@ -194,7 +177,7 @@ int main(void) {
         return 1;
     }
     init_palette_runtime();
-    init_tilemap_runtime();
+    render_init_tilemap();
     nml_set_enable(1);
     nml_set_hud_on(1);
 #endif
