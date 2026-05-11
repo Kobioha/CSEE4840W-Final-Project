@@ -11,6 +11,9 @@
 //   0x0014  PLAYER_STATS R/W  [7:0]=hp, [15:8]=wave, [31:16]=level
 //   0x0018  SCORE        R/W  32-bit score
 //   0x001C  KILL_COUNT   R/W  32-bit kills
+//   0x0020  HUD_AUX      R/W  [7:0]=ammo BCD (2 digits), [11:8]=art charges
+//                             (4-bit BCD), [15:12]=gas charges (4-bit BCD)
+//                             0x0024-0x002F reserved (region_aux returns 0)
 //   0x0100-0x01FF  Sprite table (32 x 8 B = 256 B); SW reads return shadow
 //   0x0400-0x07FF  Palette     (256 x 4 B = 1 KB)
 //   0x1000-0x22BF  Tile map    (4800 B)
@@ -57,7 +60,10 @@ module avalon_slave_iface (
     output logic [31:0] player_pos,
     output logic [31:0] player_stats,
     output logic [31:0] score_reg,
-    output logic [31:0] kill_count
+    output logic [31:0] kill_count,
+
+    // HUD auxiliary register (ammo + ability charges) → compositor
+    output logic [31:0] hud_aux
 );
 
     // -----------------------------------------------------------------------
@@ -70,6 +76,7 @@ module avalon_slave_iface (
     logic [31:0] player_stats_reg;
     logic [31:0] score_reg_int;
     logic [31:0] kill_count_reg;
+    logic [31:0] hud_aux_reg;
 
     assign ctrl_enable = ctrl_reg[0];
     assign ctrl_hud_on = ctrl_reg[2];
@@ -78,6 +85,7 @@ module avalon_slave_iface (
     assign player_stats= player_stats_reg;
     assign score_reg   = score_reg_int;
     assign kill_count  = kill_count_reg;
+    assign hud_aux     = hud_aux_reg;
 
     // ctrl_swap_req: SWAP request held for several clk cycles so the pix_clk
     // domain (running at clk/2) reliably samples it. A single-cycle pulse
@@ -98,12 +106,14 @@ module avalon_slave_iface (
 
     logic region_ctrl;       // 0x0000-0x000F
     logic region_player;     // 0x0010-0x001F
+    logic region_aux;        // 0x0020-0x002F (HUD_AUX + reserved siblings)
     logic region_sprtab;     // 0x0100-0x01FF
     logic region_palette;    // 0x0400-0x07FF
     logic region_tilemap;    // 0x1000-0x22BF
 
     assign region_ctrl    = (avs_address[13:4] == 10'h000);
     assign region_player  = (avs_address[13:4] == 10'h001);
+    assign region_aux     = (avs_address[13:4] == 10'h002);
     assign region_sprtab  = (avs_address[13:8] == 6'h01);          // 0x100-0x1FF
     assign region_palette = (avs_address[13:10] == 4'h1) &&
                             (avs_address[9:8]  != 2'b00 ||
@@ -154,6 +164,7 @@ module avalon_slave_iface (
             player_stats_reg <= '0;
             score_reg_int    <= '0;
             kill_count_reg   <= '0;
+            hud_aux_reg      <= '0;
             swap_req_cnt     <= 3'd0;
         end else begin
             // SWAP request: count down each cycle until 0. A new SWAP write
@@ -182,6 +193,11 @@ module avalon_slave_iface (
                         2'h2: score_reg_int    <= avs_writedata;
                         2'h3: kill_count_reg   <= avs_writedata;
                     endcase
+                end else if (region_aux) begin
+                    case (avs_address[3:2])
+                        2'h0: hud_aux_reg <= avs_writedata;
+                        default: ; // 0x24-0x2F reserved, writes ignored
+                    endcase
                 end
             end
         end
@@ -207,6 +223,11 @@ module avalon_slave_iface (
                     2'h1: avs_readdata = player_stats_reg;
                     2'h2: avs_readdata = score_reg_int;
                     2'h3: avs_readdata = kill_count_reg;
+                endcase
+            end else if (region_aux) begin
+                case (avs_address[3:2])
+                    2'h0:    avs_readdata = hud_aux_reg;
+                    default: avs_readdata = 32'h0;
                 endcase
             end else if (region_sprtab) begin
                 avs_readdata = sprtab_rdata_sw;

@@ -48,6 +48,7 @@ module nml_gpu (
     // Avalon / Register File
     logic ctrl_enable, ctrl_swap_req, ctrl_hud_on;
     logic [31:0] bg_scroll, player_pos, player_stats, score, kill_count;
+    logic [31:0] hud_aux;
     logic [12:0] mem_waddr;
     logic sprtab_we, palette_we, tilemap_we;
     logic [31:0] mem_wdata;
@@ -209,7 +210,8 @@ module nml_gpu (
         .sprtab_we(sprtab_we), .palette_we(palette_we), .tilemap_we(tilemap_we),
         .mem_waddr(mem_waddr), .mem_wdata(mem_wdata),
         .sprtab_rdata_sw(sprtab_rdata_sw), .palette_rdata_sw(palette_rdata_sw), .tilemap_rdata_sw(tilemap_rdata_sw),
-        .player_pos(player_pos), .player_stats(player_stats), .score_reg(score), .kill_count(kill_count)
+        .player_pos(player_pos), .player_stats(player_stats), .score_reg(score), .kill_count(kill_count),
+        .hud_aux(hud_aux)
     );
 
     vga_timing timing_inst (
@@ -260,6 +262,7 @@ module nml_gpu (
         .hud_on(ctrl_hud_on),
         .player_stats(player_stats),
         .score_reg(score),
+        .hud_aux(hud_aux),
         .tilemap_raddr(tilemap_raddr), .tilemap_rdata(tilemap_rdata),
         .tilerom_raddr(tilerom_raddr), .tilerom_rdata(tilerom_rdata),
         .linebuf_raddr(comp_raddr), .linebuf_rdata(comp_rdata),

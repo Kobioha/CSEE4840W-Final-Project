@@ -155,6 +155,9 @@ static void render_levelup(const game_t *g) {
                          (uint8_t)(g->wave_index + 1),
                          /*level=*/0);
     nml_set_score((uint32_t)g->score, 0u);
+    nml_set_hud_aux((uint8_t)(g->ammo > 99 ? 99 : g->ammo),
+                    (uint8_t)g->artillery_charges,
+                    (uint8_t)g->gas_charges);
 }
 
 /*
@@ -188,9 +191,10 @@ static void render_game_over(const game_t *g) {
         nml_hide_sprite(slot);
     }
 
-    /* Still publish the final score for the (future) HUD. */
+    /* Still publish the final score for the HUD. */
     nml_set_player_state(0, 0, 0, /*wave=*/0, /*level=*/0);
     nml_set_score((uint32_t)g->score, /*kills=*/0u);
+    nml_set_hud_aux(0, 0, 0);
 }
 
 void render_frame(const game_t *g) {
@@ -247,4 +251,7 @@ void render_frame(const game_t *g) {
                          (uint8_t)(g->wave_index + 1),
                          /*level=*/0);
     nml_set_score((uint32_t)g->score, /*kills=*/0u);
+    nml_set_hud_aux((uint8_t)(g->ammo > 99 ? 99 : g->ammo),
+                    (uint8_t)g->artillery_charges,
+                    (uint8_t)g->gas_charges);
 }

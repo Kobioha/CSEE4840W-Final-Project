@@ -167,6 +167,16 @@ void nml_set_score(uint32_t score, uint32_t kills) {
     reg_write(NML_REG_KILL_COUNT, kills);
 }
 
+void nml_set_hud_aux(uint8_t ammo, uint8_t art_charges, uint8_t gas_charges) {
+    /* Ammo BCD-packed into bits [7:0]; charges occupy single 4-bit nibbles
+     * at [11:8] (art) and [15:12] (gas). Clamp inputs so a runaway value
+     * can't corrupt other bits. */
+    uint32_t ammo_bcd = bcd_pack((uint32_t)ammo, 2) & 0xFFu;
+    uint32_t art      = (uint32_t)(art_charges > 9 ? 9 : art_charges) & 0xFu;
+    uint32_t gas      = (uint32_t)(gas_charges > 9 ? 9 : gas_charges) & 0xFu;
+    reg_write(NML_REG_HUD_AUX, ammo_bcd | (art << 8) | (gas << 12));
+}
+
 int nml_in_vblank(void) {
     return (reg_read(NML_REG_STATUS) & NML_STATUS_VBLANK) ? 1 : 0;
 }

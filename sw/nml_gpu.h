@@ -30,6 +30,7 @@
 #define NML_REG_PLAYER_STATS  0x0014
 #define NML_REG_SCORE         0x0018
 #define NML_REG_KILL_COUNT    0x001C
+#define NML_REG_HUD_AUX       0x0020   /* [7:0]=ammo BCD, [11:8]=art, [15:12]=gas */
 #define NML_SPRITE_TABLE_BASE 0x0100   /* 32 entries x 8B   = 256B  */
 #define NML_PALETTE_BASE      0x0400   /* 256 entries x 4B  = 1KB   */
 #define NML_TILEMAP_BASE      0x1000   /* 80 cols x 60 rows = 4800B */
@@ -96,6 +97,11 @@ void nml_clear_sprites(void);
 void nml_set_player_state(int16_t px, int16_t py,
                           uint8_t hp, uint8_t wave, uint16_t level);
 void nml_set_score(uint32_t score, uint32_t kills);
+
+/* Write the auxiliary HUD register (offset 0x20). ammo is 0..99, charges are
+   each 0..9. SW BCD-packs ammo (2 nibbles); charges are written as raw
+   nibbles since they fit in one digit. */
+void nml_set_hud_aux(uint8_t ammo, uint8_t art_charges, uint8_t gas_charges);
 void nml_commit_frame(void);              /* sets SWAP, returns when committed */
 int  nml_in_vblank(void);
 
