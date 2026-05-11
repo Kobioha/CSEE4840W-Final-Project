@@ -235,6 +235,7 @@ int main(void) {
         return 1;
     }
     init_palette_runtime();
+    nml_debug_full_probe();          /* run BEFORE init so test slots are cold */
     render_init_tilemap();
     debug_probe_tilemap();
     nml_set_enable(1);

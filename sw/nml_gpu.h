@@ -111,4 +111,12 @@ int  nml_in_vblank(void);
  * probe to verify the address decode + per-byte write path are wired correctly. */
 uint32_t nml_probe_tile_word(unsigned byte_offset);
 
+/* DEBUG: comprehensive probe exercising multiple access paths through the
+ * Avalon slave to isolate where the tile-map write path is failing. Prints
+ * sanity-check reads against CTRL/STATUS/palette, then tries word and byte
+ * writes to the tile map at several offsets and reads them back. Safe to
+ * call after nml_open() + init_palette_runtime(); do NOT call after
+ * render_init_tilemap() (it overwrites the test slots). */
+void nml_debug_full_probe(void);
+
 #endif /* NML_GPU_H */
