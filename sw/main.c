@@ -133,18 +133,23 @@ static void track_wave_transitions(const game_t *g, wave_tracker_t *t) {
 
 #ifndef NML_TERMINAL_BUILD
 static void init_tilemap_runtime(void) {
-    /* Scatter the tile patterns from hw/gen_rom.py for visual texture.
-     * Tile 0 = solid bg, tile 1 = bg with corner accents (unused here),
-     * tile 2 = horizontal stripes (trench feel), tile 3 = dirt scatter.
-     * Bottom 4 tile-rows render as trench stripes; the rest is plain bg
-     * sprinkled with the occasional dirt cell. */
+    /* Battlefield mosaic from the existing tile glyphs. Slots:
+     *   0 = solid bg, 1 = bg with corner accents, 2 = horizontal stripes
+     *   (trench feel), 3 = dirt scatter.
+     * Densities chosen to be obviously textured against the new palette
+     * contrast in init_palette_runtime() (brown bg, tan accents). After
+     * Batch B ships and Batch C runs, this gets replaced with the new
+     * battlefield tile slots (4..10). */
     for (int row = 0; row < NML_TILEMAP_ROWS; ++row) {
         for (int col = 0; col < NML_TILEMAP_COLS; ++col) {
             uint8_t tile_id;
-            if (row >= NML_TILEMAP_ROWS - 4) {
-                tile_id = 2;                                   /* trench */
-            } else if ((row * 7 + col * 11) % 9 == 0) {
-                tile_id = 3;                                   /* dirt accent */
+            if (row >= NML_TILEMAP_ROWS - 6) {
+                /* Bottom 6 rows: alternating trench stripes + accent rows. */
+                tile_id = (row & 1) ? 2 : 1;
+            } else if ((row * 13 + col * 7) % 5 == 0) {
+                tile_id = 3;                                   /* dirt scatter (~20%) */
+            } else if ((row * 5 + col * 3) % 11 == 0) {
+                tile_id = 1;                                   /* corner-accent tile (~9%) */
             } else {
                 tile_id = 0;                                   /* plain bg */
             }
@@ -170,8 +175,12 @@ static void init_palette_runtime(void) {
     nml_write_palette(0x17, 0xFF, 0xFF, 0xE0); /* artillery flash: bright white*/
     nml_write_palette(0x18, 0x00, 0xC0, 0x40); /* ammo drop placeholder: green */
     nml_write_palette(0x19, 0xC0, 0x20, 0x20); /* enemy bullet placeholder: red*/
-    nml_write_palette(0x20, 0x40, 0x40, 0x40); /* tile bg:  dark gray          */
-    nml_write_palette(0x21, 0x60, 0x60, 0x60); /* tile bg accent               */
+    /* Battlefield palette: warm brown background + sandy-tan accent. The
+       previous 0x40/0x60 gray pair was too low-contrast to register on the
+       VGA monitor; this pairing reads as "dirt + sand" and makes the dirt
+       scatter / trench stripes actually visible. */
+    nml_write_palette(0x20, 0x3A, 0x2A, 0x1E); /* tile bg:  dark mud brown     */
+    nml_write_palette(0x21, 0xB0, 0x88, 0x50); /* tile bg accent: sandy tan    */
     nml_write_palette(0xFF, 0xFF, 0xFF, 0xFF); /* sprite border                */
 }
 #endif

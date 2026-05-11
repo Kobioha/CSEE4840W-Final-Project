@@ -676,8 +676,11 @@ def make_palette():
     pal[PAL_ARTILLERY]    = 0xFFFFE0   # bright white
     pal[PAL_AMMO_DROP]    = 0x00C040   # ammo crate green
     pal[PAL_ENEMY_BULLET] = 0xC02020   # enemy bullet red
-    pal[PAL_BG]           = 0x404040   # dark gray
-    pal[PAL_BG_ACCENT]    = 0x606060   # lighter gray
+    # Battlefield brown + tan; high contrast pair so the dirt/trench tiles
+    # actually read on the VGA monitor (the previous 0x40/0x60 grays were
+    # too close to see).
+    pal[PAL_BG]           = 0x3A2A1E   # dark mud brown
+    pal[PAL_BG_ACCENT]    = 0xB08850   # sandy tan
     pal[PAL_BORDER]       = 0xFFFFFF   # white (sprite borders)
     return pal
 
