@@ -181,6 +181,16 @@ uint32_t nml_probe_tile_word(unsigned byte_offset) {
     return reg_read(NML_TILEMAP_BASE + word_off);
 }
 
+/* Settled read: do the access twice and return the second. Avalon-MM slaves
+ * that drive avs_readdata one cycle after avs_read (registered output) need
+ * an extra dummy access for the master to capture the right cycle. If reads
+ * are merely stale-by-one, the second access settles to the right value. */
+static uint32_t reg_read_settled(unsigned offset) {
+    (void)reg_read(offset);
+    __sync_synchronize();
+    return reg_read(offset);
+}
+
 void nml_debug_full_probe(void) {
     if (g_base == NULL) {
         printf("nml_debug_full_probe: g_base is NULL, call nml_open first\n");
@@ -189,67 +199,81 @@ void nml_debug_full_probe(void) {
 
     printf("=== Comprehensive HW probe ===\n");
 
-    /* [A] Sanity: CTRL + STATUS reads. CTRL should have ENABLE bit set or
-     * cleared depending on whether nml_set_enable was called. STATUS bit 0
-     * is VBLANK which toggles, so two consecutive reads might differ. */
-    printf("[A] CTRL=0x%08x STATUS=0x%08x STATUS2=0x%08x\n",
+    /* [Z0] Definitive register round-trip on CTRL. If we cannot write a
+     * known value and read it back, no other test result is meaningful. */
+    uint32_t ctrl_orig = reg_read(NML_REG_CTRL);
+    printf("[Z0] CTRL initial (first read)  = 0x%08x\n", ctrl_orig);
+    uint32_t ctrl_orig_settled = reg_read_settled(NML_REG_CTRL);
+    printf("[Z0] CTRL initial (settled)     = 0x%08x  (expect 0x01 at reset)\n",
+           ctrl_orig_settled);
+
+    reg_write(NML_REG_CTRL, 0x00000005u);   /* ENABLE | HUD_ON */
+    __sync_synchronize();
+    printf("[Z0] After WR 0x05, single read = 0x%08x\n", reg_read(NML_REG_CTRL));
+    printf("[Z0] After WR 0x05, settled rd  = 0x%08x  (expect 0x05)\n",
+           reg_read_settled(NML_REG_CTRL));
+
+    reg_write(NML_REG_CTRL, 0x00000001u);   /* back to ENABLE only */
+    __sync_synchronize();
+    printf("[Z0] After WR 0x01, settled rd  = 0x%08x  (expect 0x01)\n",
+           reg_read_settled(NML_REG_CTRL));
+
+    /* [A] Original CTRL + STATUS reads, both single and settled. */
+    printf("[A] CTRL single=0x%08x  CTRL settled=0x%08x\n",
            reg_read(NML_REG_CTRL),
+           reg_read_settled(NML_REG_CTRL));
+    printf("[A] STATUS single=0x%08x  STATUS settled=0x%08x\n",
            reg_read(NML_REG_STATUS),
-           reg_read(NML_REG_STATUS));
+           reg_read_settled(NML_REG_STATUS));
 
     /* [B] Sanity: palette readback. init_palette_runtime() should have set
      * 0x20 to 0x6B4423 (mid-brown dirt) and 0x25 to 0x8FBC3E (grass-light). */
-    printf("[B] palette[0x20]=0x%08x (expect 0x006B4423)\n",
-           reg_read(NML_PALETTE_BASE + 0x20u * 4u));
-    printf("[B] palette[0x25]=0x%08x (expect 0x008FBC3E)\n",
-           reg_read(NML_PALETTE_BASE + 0x25u * 4u));
+    printf("[B] palette[0x20] single=0x%08x  settled=0x%08x (expect 0x006B4423)\n",
+           reg_read(NML_PALETTE_BASE + 0x20u * 4u),
+           reg_read_settled(NML_PALETTE_BASE + 0x20u * 4u));
+    printf("[B] palette[0x25] single=0x%08x  settled=0x%08x (expect 0x008FBC3E)\n",
+           reg_read(NML_PALETTE_BASE + 0x25u * 4u),
+           reg_read_settled(NML_PALETTE_BASE + 0x25u * 4u));
 
-    /* [C] Tile-map cold reads (BEFORE any tile writes). If reads work at
-     * all, we should see the M10K reset state (typically 0 on Cyclone V). */
-    printf("[C] Tile-map cold reads (no writes yet):\n");
+    /* [C] Tile-map cold reads (BEFORE any tile writes). Use settled reads. */
+    printf("[C] Tile-map cold reads (no writes yet, settled):\n");
     for (unsigned o = 0; o < 32; o += 4) {
-        printf("    off=0x%04x word=0x%08x\n", o, reg_read(NML_TILEMAP_BASE + o));
+        printf("    off=0x%04x word=0x%08x\n", o,
+               reg_read_settled(NML_TILEMAP_BASE + o));
     }
 
-    /* [D] Word-write test at offset 0x100 (well clear of init writes). */
+    /* [D] Word-write test at offset 0x100. */
     reg_write(NML_TILEMAP_BASE + 0x100u, 0x12345678u);
     __sync_synchronize();
-    uint32_t wd = reg_read(NML_TILEMAP_BASE + 0x100u);
-    printf("[D] After STR 0x12345678 at off=0x100: read=0x%08x\n", wd);
+    printf("[D] After STR 0x12345678 at off=0x100: single=0x%08x settled=0x%08x\n",
+           reg_read(NML_TILEMAP_BASE + 0x100u),
+           reg_read_settled(NML_TILEMAP_BASE + 0x100u));
 
-    /* [E] Single-byte STRB test at offset 0x110, byte_lane=0. */
+    /* [E] Single STRB test at offset 0x110, byte_lane=0. */
     *((volatile uint8_t *)g_base + NML_TILEMAP_BASE + 0x110u) = 0xA5u;
     __sync_synchronize();
-    uint32_t we = reg_read(NML_TILEMAP_BASE + 0x110u);
-    printf("[E] After STRB 0xA5 at off=0x110 (lane 0): read=0x%08x\n", we);
+    printf("[E] After STRB 0xA5 at off=0x110 (lane 0): single=0x%08x settled=0x%08x\n",
+           reg_read(NML_TILEMAP_BASE + 0x110u),
+           reg_read_settled(NML_TILEMAP_BASE + 0x110u));
 
-    /* [F] Four consecutive STRBs at offsets 0x120..0x123: tests whether
-     * each byte_lane lands in its own slot. */
+    /* [F] Four consecutive STRBs at offsets 0x120..0x123 (all 4 byte lanes). */
     *((volatile uint8_t *)g_base + NML_TILEMAP_BASE + 0x120u) = 0x60u;
     *((volatile uint8_t *)g_base + NML_TILEMAP_BASE + 0x121u) = 0x61u;
     *((volatile uint8_t *)g_base + NML_TILEMAP_BASE + 0x122u) = 0x62u;
     *((volatile uint8_t *)g_base + NML_TILEMAP_BASE + 0x123u) = 0x63u;
     __sync_synchronize();
     printf("[F] After 4 STRBs 0x60..0x63 at offsets 0x120..0x123:\n");
-    printf("    read word at 0x120 = 0x%08x  (low byte should be 0x60)\n",
-           reg_read(NML_TILEMAP_BASE + 0x120u));
-    printf("    read word at 0x124 = 0x%08x  (slot unwritten -> expect 0)\n",
-           reg_read(NML_TILEMAP_BASE + 0x124u));
+    printf("    word at 0x120 settled=0x%08x  (low byte should be 0x60)\n",
+           reg_read_settled(NML_TILEMAP_BASE + 0x120u));
+    printf("    word at 0x124 settled=0x%08x  (slot unwritten)\n",
+           reg_read_settled(NML_TILEMAP_BASE + 0x124u));
 
-    /* [G] Stability: read the same offset 5 times in a row. */
-    printf("[G] Stability: read off=0x100 5 times:\n");
-    for (int i = 0; i < 5; i++) {
-        printf("    [%d] = 0x%08x\n", i, reg_read(NML_TILEMAP_BASE + 0x100u));
-    }
-
-    /* [H] Spread reads to detect whether mem_waddr actually changes with
-     * the address (or is somehow stuck). Each offset chosen so the slot
-     * was untouched by [D]/[E]/[F]. */
-    printf("[H] Spread reads:\n");
-    unsigned offs[] = { 0u, 4u, 0x40u, 0x80u, 0x300u, 0x500u, 0x1000u, 0x12BCu };
+    /* [H] Spread reads to detect whether mem_waddr propagates. */
+    printf("[H] Spread settled reads:\n");
+    unsigned offs[] = { 0u, 4u, 0x40u, 0x80u, 0x100u, 0x110u, 0x120u, 0x300u, 0x1000u };
     for (unsigned i = 0; i < sizeof(offs)/sizeof(offs[0]); i++) {
         printf("    off=0x%04x: 0x%08x\n", offs[i],
-               reg_read(NML_TILEMAP_BASE + offs[i]));
+               reg_read_settled(NML_TILEMAP_BASE + offs[i]));
     }
 
     fflush(stdout);
