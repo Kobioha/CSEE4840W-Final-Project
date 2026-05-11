@@ -1,0 +1,23 @@
+
+State Machine - |soc_system_top|soc_system:soc_system0|soc_system_mm_interconnect_0:mm_interconnect_0|altera_merlin_burst_adapter:nml_gpu_0_avalon_slave_0_burst_adapter|altera_merlin_burst_adapter_13_1:altera_merlin_burst_adapter_13_1.burst_adapter|state
+Name state.ST_IDLE state.ST_UNCOMP_WR_SUBBURST state.ST_UNCOMP_TRANS state.ST_COMP_TRANS 
+state.ST_IDLE 0 0 0 0 
+state.ST_COMP_TRANS 1 0 0 1 
+state.ST_UNCOMP_TRANS 1 0 1 0 
+state.ST_UNCOMP_WR_SUBBURST 1 1 0 0 
+
+State Machine - |soc_system_top|soc_system:soc_system0|nml_gpu:nml_gpu_0|sprite_fetch:fetch_inst|state
+Name state.WRITE_PIXEL state.WAIT_PIXEL state.READ_PIXEL state.PROCESS_SPRITE state.CLEAR_BUF state.IDLE 
+state.IDLE 0 0 0 0 0 0 
+state.CLEAR_BUF 0 0 0 0 1 1 
+state.PROCESS_SPRITE 0 0 0 1 0 1 
+state.READ_PIXEL 0 0 1 0 0 1 
+state.WAIT_PIXEL 0 1 0 0 0 1 
+state.WRITE_PIXEL 1 0 0 0 0 1 
+
+State Machine - |soc_system_top|soc_system:soc_system0|nml_gpu:nml_gpu_0|sprite_eval:eval_inst|state
+Name state.DONE state.EVAL state.FETCH state.IDLE 
+state.IDLE 0 0 0 0 
+state.FETCH 0 0 1 1 
+state.EVAL 0 1 0 1 
+state.DONE 1 0 0 1 
