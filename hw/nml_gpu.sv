@@ -19,7 +19,6 @@ module nml_gpu (
     output logic        vga_blank_n, vga_sync_n, vga_clk
 );
 
-    assign avs_waitrequest = 1'b0;
     assign vga_sync_n = 1'b0; // Not used for our DAC
 
     // =========================================================================
@@ -212,7 +211,7 @@ module nml_gpu (
         .clk(clk), .reset_n(reset_n),
         .avs_address(avs_address), .avs_read(avs_read), .avs_write(avs_write),
         .avs_writedata(avs_writedata), .avs_byteenable(avs_byteenable),
-        .avs_readdata(avs_readdata),
+        .avs_readdata(avs_readdata), .avs_waitrequest(avs_waitrequest),
         .vblank_in(vblank), .swap_pending_in(swap_pending), .frame_ctr_in(8'd0),
         .ctrl_enable(ctrl_enable), .ctrl_swap_req(ctrl_swap_req), .ctrl_hud_on(ctrl_hud_on),
         .bg_scroll(bg_scroll),

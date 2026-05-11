@@ -32,6 +32,7 @@ module avalon_slave_iface (
     input  logic [31:0] avs_writedata,
     input  logic [3:0]  avs_byteenable,
     output logic [31:0] avs_readdata,
+    output logic        avs_waitrequest,
 
     // Status inputs from rest of design
     input  logic        vblank_in,
@@ -120,6 +121,24 @@ module avalon_slave_iface (
                              avs_address[13:10] == 4'h1);           // 0x400-0x7FF
     assign region_tilemap = (avs_address >= 14'h1000) &&
                             (avs_address <  14'h22C0);              // 0x1000-0x22BF
+
+    // -----------------------------------------------------------------------
+    // Read latency: RAM regions (sprtab/palette/tilemap) drive their
+    // *_rdata_sw signals via an always_ff register, so the data is valid one
+    // clk after avs_read goes high. Scalar registers (CTRL/STATUS/...) are
+    // driven combinationally. Hold avs_waitrequest high for the first cycle
+    // of any RAM-region read so the master captures the registered data on
+    // the cycle it actually arrives, not the previous cycle's idle latch.
+    // -----------------------------------------------------------------------
+    logic ram_read_active;
+    logic ram_read_seen;
+    assign ram_read_active = avs_read && (region_sprtab || region_palette || region_tilemap);
+    always_ff @(posedge clk or negedge reset_n) begin
+        if (!reset_n)            ram_read_seen <= 1'b0;
+        else if (!ram_read_active) ram_read_seen <= 1'b0;
+        else                       ram_read_seen <= 1'b1;
+    end
+    assign avs_waitrequest = ram_read_active && !ram_read_seen;
 
     // Sprite table: 32 entries × 8B; SW address [7:2] = word index (0-63 words → 32 entries × 2 words)
     // Palette:      256 entries × 4B; SW address [9:2] = entry index
