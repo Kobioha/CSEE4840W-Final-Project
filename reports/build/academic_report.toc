@@ -1,0 +1,42 @@
+\contentsline {section}{\numberline {1}Introduction}{4}{section.1}%
+\contentsline {section}{\numberline {2}System Architecture}{4}{section.2}%
+\contentsline {section}{\numberline {3}Hardware Design}{5}{section.3}%
+\contentsline {subsection}{\numberline {3.1}Pixel clock generation (\texttt {pll\_25mhz.v})}{5}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}VGA timing (\texttt {vga\_timing.sv})}{6}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}Sprite engine}{6}{subsection.3.3}%
+\contentsline {subsubsection}{\numberline {3.3.1}\texttt {sprite\_eval.sv}}{6}{subsubsection.3.3.1}%
+\contentsline {subsubsection}{\numberline {3.3.2}\texttt {sprite\_fetch.sv}}{6}{subsubsection.3.3.2}%
+\contentsline {subsubsection}{\numberline {3.3.3}Double line buffer}{7}{subsubsection.3.3.3}%
+\contentsline {subsection}{\numberline {3.4}Compositor (\texttt {compositor.sv})}{7}{subsection.3.4}%
+\contentsline {subsection}{\numberline {3.5}Memories}{8}{subsection.3.5}%
+\contentsline {subsection}{\numberline {3.6}Avalon-MM slave interface (\texttt {avalon\_slave\_iface.sv})}{8}{subsection.3.6}%
+\contentsline {subsection}{\numberline {3.7}Top-level integration}{9}{subsection.3.7}%
+\contentsline {section}{\numberline {4}Software Design}{9}{section.4}%
+\contentsline {subsection}{\numberline {4.1}Game state machine and entity pool (\texttt {game.c}, \texttt {game.h})}{9}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}Wave system (\texttt {wave.c}, \texttt {wave.h})}{10}{subsection.4.2}%
+\contentsline {subsection}{\numberline {4.3}Auto-attack system (\texttt {autoatk.c}, \texttt {autoatk.h})}{10}{subsection.4.3}%
+\contentsline {subsection}{\numberline {4.4}Input subsystem}{11}{subsection.4.4}%
+\contentsline {subsection}{\numberline {4.5}Rendering pipeline (\texttt {render.c}, \texttt {render\_terminal.c})}{11}{subsection.4.5}%
+\contentsline {subsection}{\numberline {4.6}Main loop (\texttt {main.c})}{11}{subsection.4.6}%
+\contentsline {section}{\numberline {5}Hardware--Software Interface}{12}{section.5}%
+\contentsline {subsection}{\numberline {5.1}Register map}{12}{subsection.5.1}%
+\contentsline {subsection}{\numberline {5.2}Frame-commit handshake}{13}{subsection.5.2}%
+\contentsline {subsection}{\numberline {5.3}Byte-store semantics for the tile map}{13}{subsection.5.3}%
+\contentsline {section}{\numberline {6}Build and Toolchain}{13}{section.6}%
+\contentsline {subsection}{\numberline {6.1}Hardware build}{13}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}ROM generation (\texttt {hw/gen\_rom.py})}{14}{subsection.6.2}%
+\contentsline {subsection}{\numberline {6.3}Software build}{14}{subsection.6.3}%
+\contentsline {subsection}{\numberline {6.4}Boot and SD-card image}{14}{subsection.6.4}%
+\contentsline {section}{\numberline {7}Testing and Verification}{14}{section.7}%
+\contentsline {section}{\numberline {8}Results}{14}{section.8}%
+\contentsline {subsection}{\numberline {8.1}Resource utilisation}{14}{subsection.8.1}%
+\contentsline {subsection}{\numberline {8.2}Timing analysis}{15}{subsection.8.2}%
+\contentsline {subsection}{\numberline {8.3}Frame timing}{15}{subsection.8.3}%
+\contentsline {section}{\numberline {9}Challenges and Resolutions}{16}{section.9}%
+\contentsline {subsection}{\numberline {9.1}Tile-map byte-enable RMW}{16}{subsection.9.1}%
+\contentsline {subsection}{\numberline {9.2}Single-cycle \texttt {eval\_done} against multi-cycle \texttt {CLEAR\_BUF}}{16}{subsection.9.2}%
+\contentsline {subsection}{\numberline {9.3}CDC on \texttt {ctrl\_swap\_req}}{16}{subsection.9.3}%
+\contentsline {subsection}{\numberline {9.4}Pixel-clock duty cycle}{16}{subsection.9.4}%
+\contentsline {subsection}{\numberline {9.5}Active rendering bugs}{17}{subsection.9.5}%
+\contentsline {section}{\numberline {10}Conclusion and Open Work}{17}{section.10}%
+\contentsline {section}{References}{17}{section*.12}%

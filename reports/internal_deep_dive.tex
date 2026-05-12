@@ -1,0 +1,840 @@
+\documentclass[11pt,letterpaper]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{longtable}
+\usepackage{tabularx}
+\usepackage{enumitem}
+\usepackage{caption}
+\usepackage{tikz}
+\usetikzlibrary{positioning,arrows.meta,calc,fit,shapes.geometric,backgrounds}
+\usepackage[hidelinks,colorlinks=true,linkcolor=blue,urlcolor=blue]{hyperref}
+
+\setlength{\parskip}{0.5em}
+\setlength{\parindent}{0pt}
+\setcounter{secnumdepth}{2}
+\setcounter{tocdepth}{2}
+\emergencystretch=4em
+\hbadness=99999
+\hfuzz=2pt
+
+\definecolor{lstbg}{rgb}{0.97,0.97,0.97}
+\definecolor{lstkw}{rgb}{0.10,0.30,0.65}
+\definecolor{lstcm}{rgb}{0.40,0.40,0.40}
+\definecolor{lststr}{rgb}{0.55,0.10,0.10}
+
+\lstdefinelanguage{SystemVerilog}{
+  morekeywords={module,endmodule,input,output,inout,logic,wire,reg,assign,
+    always,always_ff,always_comb,always_latch,posedge,negedge,if,else,case,
+    endcase,begin,end,for,while,initial,parameter,localparam,typedef,enum,
+    struct,packed,unpacked,signed,unsigned,return,break,continue,default,
+    int,bit,byte,shortint,longint,real,time,string,void,function,endfunction,
+    task,endtask,generate,endgenerate,genvar,timescale,readmemh},
+  morecomment=[l]//,
+  morecomment=[s]{/*}{*/},
+  morestring=[b]",
+}
+
+\lstdefinestyle{sv}{
+  language=SystemVerilog,
+  basicstyle=\ttfamily\footnotesize,
+  keywordstyle=\color{lstkw}\bfseries,
+  commentstyle=\color{lstcm}\itshape,
+  stringstyle=\color{lststr},
+  backgroundcolor=\color{lstbg},
+  frame=single, framesep=4pt, framerule=0pt, rulecolor=\color{lstbg},
+  breaklines=true, columns=fullflexible, keepspaces=true,
+  showstringspaces=false,
+  xleftmargin=1em, xrightmargin=1em,
+}
+\lstdefinestyle{c}{
+  language=C,
+  basicstyle=\ttfamily\footnotesize,
+  keywordstyle=\color{lstkw}\bfseries,
+  commentstyle=\color{lstcm}\itshape,
+  stringstyle=\color{lststr},
+  backgroundcolor=\color{lstbg},
+  frame=single, framesep=4pt, framerule=0pt, rulecolor=\color{lstbg},
+  breaklines=true, columns=fullflexible, keepspaces=true,
+  showstringspaces=false,
+  xleftmargin=1em, xrightmargin=1em,
+}
+\lstdefinestyle{plain}{
+  basicstyle=\ttfamily\footnotesize,
+  backgroundcolor=\color{lstbg},
+  frame=single, framesep=4pt, framerule=0pt, rulecolor=\color{lstbg},
+  breaklines=true, columns=fullflexible, keepspaces=true,
+  xleftmargin=1em, xrightmargin=1em,
+}
+\lstset{style=plain}
+
+\hypersetup{
+  pdftitle={Internal Deep Dive: No Man's Land},
+  pdfauthor={Rohit Biswas, Kambinachi Obioha, Nicola Paparella},
+}
+
+\title{\textbf{Internal Deep Dive: No Man's Land}\\[0.3em]
+\large File-by-file walkthrough of the DE1-SoC project}
+\author{Rohit Biswas \and Kambinachi Obioha \and Nicola Paparella}
+\date{CSEE 4840, Spring 2026 --- \today}
+
+\begin{document}
+\maketitle
+
+\begin{quote}
+Audience: the three of us, the TA, the professor in a tight Q\&A. Goal: you
+can answer any question about any crevice of this project after reading this
+once. Pair with \texttt{docs/academic\_report.md} for the polished framing.
+\end{quote}
+
+This doc is organised file by file. Each section is the ``what is this,
+what's weird about it, what would break if you changed it'' cheat sheet.
+
+\tableofcontents
+\newpage
+
+% ===========================================================================
+\section{Repo layout}
+
+\begin{lstlisting}[style=plain]
+CSEE4840W-Final-Project/
+  README.md            one line; the title
+  DESIGN.md            the original design doc with the register map
+  SETUP.md             Phase 0/1/2 bring-up
+  docs/                this report and the academic one live here
+  reports/             LaTeX sources + PDFs (build artifacts in build/)
+  hw/                  Phase 1 fabric-only RTL + Quartus project
+    de1soc_top.sv      Phase 1 wrapper, no HPS
+    nml_gpu.sv         the GPU peripheral (top of nml_gpu's hierarchy)
+    avalon_slave_iface.sv
+    vga_timing.sv
+    sprite_eval.sv
+    sprite_fetch.sv
+    compositor.sv
+    pll_25mhz.v        divide-by-2 placeholder for altera_pll
+    gen_rom.py         emits the four .hex files below
+    sprite_rom.hex, tile_rom.hex, palette.hex, sprite_table.hex
+    quartus/           project + output_files (sof, rbf, reports)
+  nml_gpu_hw/          Phase 2 Qsys system + HPS-integrated wrapper
+    soc_system.qsys, .qsf, .tcl, .sdc
+    soc_system_top.sv
+    nml_gpu_hw.tcl
+    Makefile           qsys / quartus / rbf / dtb targets
+    nml_gpu.sv ...     duplicated from hw/ (KEEP IN SYNC)
+  sw/                  C game
+    main.c, game.c/.h
+    render.c/.h        FPGA renderer
+    render_terminal.c  off-board renderer
+    nml_gpu.c/.h       /dev/mem mmap driver
+    input.h, input_real.c, input_fake.c
+    wave.c/.h, autoatk.c/.h
+    Makefile
+  lab3-reference/      vga_ball lab, kept around for reference
+\end{lstlisting}
+
+\texttt{hw/} and \texttt{nml\_gpu\_hw/} carry the same SystemVerilog.
+\textbf{There is no build rule that keeps them in sync.} When you edit
+\texttt{hw/avalon\_slave\_iface.sv}, you also have to copy it into
+\texttt{nml\_gpu\_hw/avalon\_slave\_iface.sv}, or you'll spend an evening
+hunting a stale-source bug. This is the single biggest piece of foot-gun in
+the project; fix it before next semester (symlink or \texttt{make sync}).
+
+% ===========================================================================
+\section{Phase 1 vs Phase 2}
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Phase 1.} Top-level entity is \texttt{de1soc\_top}. Avalon
+    slave is tied off. The bitstream alone is a complete VGA producer thanks
+    to \texttt{\$readmemh} initialisation of the palette, sprite table,
+    sprite ROM, and tile ROM. Compiled from \texttt{hw/quartus/nml\_gpu.qpf}.
+    Output is \texttt{nml\_gpu.sof} (JTAG) and \texttt{nml\_gpu.rbf}
+    (SD card). Use this to verify the fabric pipeline in isolation.
+  \item \textbf{Phase 2.} Top-level entity is \texttt{soc\_system\_top}. The
+    HPS is on the board, a Platform Designer system bridges HPS-LW to
+    nml\_gpu's Avalon slave, the device tree exposes the peripheral, and
+    the C binary \texttt{mmap()}s \texttt{/dev/mem} at 0xFF200000. Compiled
+    from \texttt{nml\_gpu\_hw/}. Output is \texttt{soc\_system.rbf} +
+    \texttt{soc\_system.dtb} for the SD card.
+\end{itemize}
+
+The hot-loop for Phase 1 bring-up is \texttt{quartus\_pgm -m JTAG ...} (or
+double-click in the GUI). The hot-loop for Phase 2 is mount SD card $\to$
+\texttt{cp soc\_system.rbf soc\_system.dtb /Volumes/<boot>/} $\to$ eject
+$\to$ boot $\to$ \texttt{scp} the binary $\to$ run. We do most Phase 2
+iteration native on the board (\texttt{make native} on the device) because
+that beats the SD-card shuffle.
+
+% ===========================================================================
+\section{\texttt{hw/nml\_gpu.sv} --- top of the GPU hierarchy}
+
+305 lines. Two clock domains: \texttt{clk} (50\,MHz, Avalon) and
+\texttt{pix\_clk} (25\,MHz, VGA). The full memory inventory and most of the
+inter-block glue lives here, not in the slave.
+
+\begin{itemize}[leftmargin=*]
+  \item Lines 22, 38: tie \texttt{vga\_sync\_n = 0} (DAC uses the dedicated
+    sync pins, not sync-on-green); invert \texttt{vga\_clk = \textasciitilde
+    pix\_clk} so the ADV7123 samples mid-cycle. \textbf{If you stop
+    inverting, expect colour fringing or wrong sampling --- you are letting
+    the DAC sample during the FPGA's transition window.}
+  \item Lines 29--33: PLL instance. \texttt{outclk\_0} is \texttt{pix\_clk}.
+    Reset is inverted (\texttt{pll\_25mhz} is active-high; the project's
+    reset is active-low).
+  \item Lines 73--87: sprite table active/shadow. Two 32$\times$64 RAMs.
+    Avalon writes go to shadow (split into low/high 32-bit halves by
+    \texttt{mem\_waddr[0]}), Avalon reads come from shadow.
+  \item Lines 94--118: cross \texttt{ctrl\_swap\_req} from \texttt{clk} into
+    \texttt{pix\_clk}. The third synchroniser flop is for edge detection;
+    you set \texttt{swap\_pending} on the rising edge of the synchronised
+    request, bulk-assign the active table from shadow on the next vsync,
+    and clear \texttt{swap\_pending}. Three points of subtlety:
+  \begin{enumerate}[leftmargin=*,nosep]
+    \item \texttt{swap\_pending} is in the pix\_clk domain. The slave reads
+      it back via \texttt{swap\_pending\_in} on the Avalon clock --- this is
+      a CDC the other way. The only reader is a polling loop slower than
+      50\,MHz so the 1--2 cycle race is harmless.
+    \item The bulk assignment loop synthesises as 32 parallel registers,
+      not a sequential loop. 2048 flops on one edge. If you grew the table
+      to 256 entries this would blow up.
+    \item If you remove the edge detect, you reload \texttt{swap\_pending}
+      every pix\_clk cycle the synchroniser sees the request high ---
+      redundant but harmless.
+  \end{enumerate}
+  \item Line 124: \texttt{eval\_sprtab\_rdata =
+    sprite\_table\_active[eval\_sprtab\_raddr]} is \textbf{combinational}
+    on pix\_clk. sprite\_eval drives \texttt{raddr} and expects
+    \texttt{rdata} next cycle through.
+  \item Lines 132--136: palette RAM. Avalon-side write port at \texttt{clk},
+    pix\_clk-side read port.
+  \item Lines 138--173: tile map. Read this section twice if you're going
+    to edit it. The packed \texttt{[3:0][7:0]} form is the only thing that
+    makes byte writes work over the LW bridge.
+  \item Lines 176--195: ROMs and initialisers. \texttt{\$readmemh} paths are
+    \textbf{relative}. They resolve against the directory Quartus is run
+    from (i.e.\ \texttt{hw/quartus/}). The QSF adds \texttt{SEARCH\_PATH ..}
+    to rescue them. If you move the QSF or run \texttt{quartus\_sh} from
+    elsewhere, the ROMs come up zeroed and the FPGA emits a black screen.
+  \item Lines 198--221: dual line buffers. \texttt{linebuf\_sel} toggles at
+    \texttt{hblank \&\& x == 640}. The ``fill'' buffer is whichever index
+    matches \texttt{linebuf\_sel}; the compositor reads the \emph{other}
+    one (line 221). \textbf{If you flip the polarity of
+    \texttt{linebuf\_sel}, the compositor reads garbage.}
+  \item Line 248: \texttt{eval\_strobe = (x == 642)}. The 642 is arbitrary
+    --- any value in $[640, 700]$ would work.
+  \item Lines 250--270: the \texttt{eval\_done\_r} sustain latch. The reason
+    this exists is in the comment block at lines 259--263 and in the
+    academic report §9.2. \textbf{Do not remove unless you replace it with
+    a more reliable handshake.}
+  \item Lines 298--300: \texttt{vga\_r/g/b} mux on \texttt{ctrl\_enable}.
+    When disabled, all three are 0 and the monitor goes black. Used at
+    shutdown (\texttt{nml\_set\_enable(0)} in \texttt{main.c:270}).
+\end{itemize}
+
+\begin{lstlisting}[style=sv, caption={SWAP cross-clock-domain machinery (\texttt{hw/nml\_gpu.sv:94--118}).}]
+always_ff @(posedge pix_clk or negedge reset_n) begin
+    if (!reset_n) begin
+        ctrl_swap_req_sync_a <= 1'b0;
+        ctrl_swap_req_sync_b <= 1'b0;
+        ctrl_swap_req_sync_c <= 1'b0;
+    end else begin
+        ctrl_swap_req_sync_a <= ctrl_swap_req;
+        ctrl_swap_req_sync_b <= ctrl_swap_req_sync_a;
+        ctrl_swap_req_sync_c <= ctrl_swap_req_sync_b;
+    end
+end
+wire ctrl_swap_req_pulse = ctrl_swap_req_sync_b && !ctrl_swap_req_sync_c;
+
+always_ff @(posedge pix_clk or negedge reset_n) begin
+    if (!reset_n) swap_pending <= 1'b0;
+    else begin
+        if (ctrl_swap_req_pulse) swap_pending <= 1'b1;
+        if (swap_pending && vsync) begin
+            for (int i=0; i<32; i++) sprite_table_active[i] <= sprite_table_shadow[i];
+            swap_pending <= 1'b0;
+        end
+    end
+end
+\end{lstlisting}
+
+% ===========================================================================
+\section{\texttt{hw/avalon\_slave\_iface.sv} --- register decode}
+
+268 lines. The header comment block at lines 1--22 is the canonical
+register map.
+
+\begin{itemize}[leftmargin=*]
+  \item Lines 95--96, 199--209: SWAP pulse stretcher. 3-bit counter, loaded
+    with 7 on each write to CTRL bit 1. Holds \texttt{ctrl\_swap\_req} high
+    for seven 50\,MHz cycles (140\,ns). \textbf{If you shrink the count
+    below 3 you risk losing SWAPs.}
+  \item Lines 115--123: address decode. \texttt{region\_palette} looks weird
+    (the second clause is logically redundant); intent is ``0x400--0x7FF
+    inclusive''.
+  \item Lines 133--141: \texttt{avs\_waitrequest} is held high on the first
+    cycle of any RAM-region read, then released. \textbf{If you tie
+    waitrequest to 0 unconditionally, the master will sample the previous
+    \texttt{*\_rdata\_sw} instead of the one for the current address.}
+  \item Lines 156--179: write-decode \texttt{always\_comb}.
+    \texttt{mem\_waddr} is computed for both reads and writes (the
+    \texttt{if (region\_*) ...} does not gate on \texttt{avs\_write}). This
+    matters because the read path shares the same \texttt{mem\_waddr} to
+    address the SW-readback registers.
+  \item Lines 169--178: \textbf{tile-map address packing}. The expression
+    \texttt{\{avs\_address[13], avs\_address[11:0]\}} is non-obvious. The
+    tile map spans 0x1000--0x22BF; for 0x1000--0x1FFF, bit 13=0 and bit
+    12=1 so the packing yields 0x000--0xFFF; for 0x2000--0x22BF, bit 13=1
+    and bit 12=0 so the packing yields 0x1000--0x12BF. Truncating to
+    \texttt{[12:0]} (the old behaviour) aliased the upper half on top of
+    the lower half and clobbered rows 0..8 every time row 24+ was written.
+    \textbf{Touching this expression risks the stripe bug coming back in a
+    different form.}
+  \item Lines 184--230: scalar-register write \texttt{always\_ff}. CTRL has
+    the auto-clear on bit 1 (line 208). \textbf{\texttt{frame\_ctr\_in} is
+    hardwired to 8'd0 at the top level (line 231) --- the frame counter in
+    STATUS[15:8] is always zero.} Wire it up to a vsync-edge counter as a
+    Phase 3 task.
+  \item Lines 235--266: read mux. Combinational. Default \texttt{32'h0} if
+    no region matches.
+\end{itemize}
+
+% ===========================================================================
+\section{\texttt{hw/vga\_timing.sv} --- 800$\times$525 frame walker}
+
+64 lines. The standard 640$\times$480 @ 60\,Hz parameters.
+
+\begin{itemize}[leftmargin=*,nosep]
+  \item \texttt{h\_count}, \texttt{v\_count} reach 799 and 524 at the wrap
+    line. \texttt{x, y} are direct aliases.
+  \item \texttt{hsync}/\texttt{vsync} are \textbf{active low}, generated as
+    \texttt{\textasciitilde(in\_sync\_range)}.
+  \item \texttt{hblank = (h\_count >= 640)}.
+    \texttt{vblank = (v\_count >= 480)}.
+    \texttt{visible = !hblank \&\& !vblank}.
+  \item Off-by-one trap: when \texttt{x = 799, y = 524},
+    \texttt{tile\_col = 99, tile\_row = 65}, address is $65\times80 + 99
+    = 5299$. The tile map only has 4800 entries. The spurious accesses are
+    during blanking, where \texttt{VGA\_BLANK\_N = 0} so the result is
+    masked. \textbf{If you ever drop the blanking gate, this reads out of
+    bounds and the porches will show garbage.}
+\end{itemize}
+
+% ===========================================================================
+\section{\texttt{hw/sprite\_eval.sv} --- top-8 priority sort}
+
+117 lines. FSM with four states.
+
+\begin{itemize}[leftmargin=*]
+  \item Lines 32--34: bit positions in the 64-bit sprite word for \texttt{y}
+    (31:16), \texttt{prio} (46:44), \texttt{active} (47). Bit 47 is where
+    the C driver's \texttt{NML\_FLAG\_ACTIVE} ends up after the
+    \texttt{nml\_write\_sprite} packing (\texttt{sw/nml\_gpu.h:69},
+    \texttt{sw/nml\_gpu.c:106--109}). \textbf{The design doc said sprites
+    are hidden by sentinel coordinates; the hardware reads bit 47 as the
+    active flag. The C driver hides via both paths (sets $x = y = -256$
+    and clears bit 47).}
+  \item Lines 77--94: insertion sort. The \texttt{inserted} variable is a
+    \texttt{logic} declared inside the always block; it is combinational
+    inside the always edge. Each slot's compare runs in parallel; the
+    \texttt{if (!inserted)} chain forces sequential semantics so a single
+    sprite lands in only one slot. Total: \textasciitilde 512 LE gates of
+    compare and shift.
+  \item Line 97--102: \texttt{sprite\_idx} is 6 bits so it can naturally
+    reach 32. When \texttt{sprite\_idx == 31}, state goes to \texttt{DONE};
+    on the next cycle, the sorted list is latched and \texttt{eval\_done}
+    is pulsed.
+  \item Total cycle budget: 32 fetches + 32 evals (interleaved) + 1 DONE
+    = \textasciitilde 65 cycles. HBLANK at 25\,MHz is 160 cycles; eval
+    finishes with margin.
+  \item \textbf{Quirk:} \texttt{top\_sprites}/\texttt{top\_prios}/\texttt{top\_valid}
+    are not declared with explicit reset values; they survive between
+    scanlines unless the IDLE-to-FETCH transition clears them. Lines 60--62
+    do that clear. If you move the clear elsewhere, you get a slow death
+    where stale sprites linger across scanlines.
+\end{itemize}
+
+% ===========================================================================
+\section{\texttt{hw/sprite\_fetch.sv} --- ROM read + line buffer write}
+
+135 lines. FSM with six states.
+
+\begin{itemize}[leftmargin=*]
+  \item Lines 32--38: bit positions for \texttt{x} (15:0), \texttt{y}
+    (31:16), \texttt{id} (37:32), \texttt{hflip} (42). \texttt{vflip} is at
+    bit 43 but not used --- only hflip is wired in the inner address
+    compute.
+  \item Line 42: \texttt{pixel\_v = next\_scanline - spr\_y}. Signed
+    subtract; the result is the row within the 16-pixel sprite.
+  \item Line 75: in CLEAR\_BUF, after writing pixel 639 we \textbf{wait}
+    until \texttt{eval\_done} before transitioning.
+  \item Lines 87--97: walk sprites high to low priority. The pixels of the
+    highest-priority sprite are written \emph{last}, overwriting any
+    lower-priority sprite at the same X. Inactive sprites (active\_mask
+    bit clear) are skipped in one cycle each.
+  \item Lines 99--114: READ\_PIXEL drives \texttt{sprrom\_raddr}, then we
+    wait one cycle in WAIT\_PIXEL for the ROM read to complete, then
+    WRITE\_PIXEL writes the result if it's non-zero and on-screen. The flow
+    takes 3 cycles per pixel, so 48 cycles per sprite if all 16 pixels are
+    non-transparent.
+  \item \textbf{Cycle budget arithmetic for the worst case:}
+    \begin{itemize}[leftmargin=*,nosep]
+      \item CLEAR\_BUF: 640 cycles.
+      \item 8 sprites $\times$ 48 cycles = 384 cycles for fetch.
+      \item Total: $\approx 1024$ cycles needed.
+      \item HBLANK: 160 cycles at 25\,MHz.
+    \end{itemize}
+    We cannot finish the fetch within the HBLANK that precedes its
+    scanline. \textbf{The reason the pipeline works at all is that the line
+    buffers are double-buffered with a 1-line latency:} while we fetch into
+    the active fill buffer during scanline $N$'s HBLANK and $N$'s visible
+    time, the compositor reads from the other buffer for scanline $N$. The
+    fill is allowed to spill over into the visible region; what matters is
+    that it finishes before the swap at the end of scanline $N$. The real
+    budget is HBLANK (160) + visible (640) = 800 cycles, which is just
+    enough for the worst case. \textbf{A 9th sprite per scanline would not
+    fit.}
+\end{itemize}
+
+% ===========================================================================
+\section{\texttt{hw/compositor.sv} --- pipeline + HUD}
+
+313 lines. Four pipeline stages.
+
+Things worth memorising for the Q\&A:
+
+\begin{itemize}[leftmargin=*]
+  \item HUD strip is the top 16 pixels ($y < 16$). HP bar at $x = 0..191$
+    (192\,px wide). Then AMMO/WAVE/ART/GAS/SCORE labels and digits. Lines
+    36--66 are the layout constants; lines 70--73 are the HUD colours.
+  \item Lines 99--101: HP bar fill is \texttt{hp\_x2 = hp $\ll$ 1}, clamped
+    to 192, with per-pixel fill flag \texttt{(x[8:0] < hp\_bar\_width)}.
+    HP is 0..100, so \texttt{hp\_x2} is 0..200; clamp catches the upper bit.
+  \item Lines 127--178: label tile lookups. Each label region maps a
+    character index (derived from local-$x \gg 3$) to a tile ID in the
+    letter band 16..41 (\texttt{16 + (letter - 'A')}).
+  \item Lines 180--212: BCD digit extraction. Score is 6 BCD digits in
+    \texttt{score\_reg[23:0]}. Leftmost screen column is the highest
+    digit, so \texttt{score\_nibble\_idx = 5 - score\_digit\_idx}.
+  \item Lines 240--244: background tile map address.
+    \texttt{tile\_col = x[9:3]}, \texttt{tile\_row = y[9:3]}.
+    \textbf{Implicitly assumes the visible region is the entire 80$\times$60
+    grid.} \texttt{scroll\_x}/\texttt{scroll\_y} are routed in but currently
+    unused --- adding scrolling means adding the scroll values into
+    \texttt{tile\_col}/\texttt{tile\_row} here and re-validating wrap
+    behaviour.
+  \item Lines 247--268: S1$\to$S2 latches. Important to register the
+    background tile map data here so the tile ROM address (in S2) has one
+    cycle to settle. \textbf{\texttt{sprite\_pixel\_delay <= linebuf\_rdata}}
+    is the latched copy of the sprite line buffer value.
+  \item Lines 271--273: tile ROM address mux. If we are drawing HUD text,
+    the tile id comes from the HUD path; otherwise from the background.
+  \item Lines 280--286: S2$\to$S3 latches. Just delaying the HUD-region
+    flags one more cycle.
+  \item Lines 289--292: palette index select. Sprite pixel wins if non-zero;
+    otherwise tile pixel.
+  \item Lines 296--311: final RGB. If not visible $\to$ black. If HP bar
+    $\to$ green or dark red. If HUD text $\to$ white on dark grey (tile
+    ROM glyph byte is 0xFF for lit pixels, 0x00 for blank). Else $\to$
+    \texttt{palette\_rdata}.
+\end{itemize}
+
+\textbf{Pitfall:} the \texttt{s3\_in\_hud\_*} flags lag the actual tile ROM
+read data by one cycle. If you ever change the pipeline depth, recheck that
+every HUD-region flag is delayed by exactly the right number of stages.
+
+% ===========================================================================
+\section{\texttt{hw/pll\_25mhz.v} --- divide-by-2}
+
+30 lines. Register \texttt{clk\_div} toggles on every 50\,MHz rising edge.
+Quartus auto-promotes the register output onto a global clock network.
+Works on silicon, fails analyser pulse-width check.
+
+\textbf{Replace with \texttt{altera\_pll} in Phase 3.} The port names are
+the defaults so it's a drop-in. Until then, accept the negative slack in
+the timing report.
+
+% ===========================================================================
+\section{\texttt{hw/gen\_rom.py} --- ROM emitter}
+
+777 lines. Three functions worth knowing about.
+
+Sprite IDs:
+
+\begin{table}[h]
+\centering
+\begin{tabular}{rll}
+\toprule
+ID & Sprite & Notes \\
+\midrule
+0 & Transparent & All bytes zero \\
+1 & Player & Green-bordered square \\
+2 & Armed enemy & Red with white cross \\
+3 & Player bullet & 4$\times$4 yellow centred \\
+4 & Unarmed enemy & Solid pink \\
+5 & Mortar shell & Orange diamond \\
+6 & (retired) wire & Removed when AA\_WIRE dropped \\
+7 & Mustard gas & Green circle radius 7 \\
+8 & Artillery flash & White plus, 7-pixel arms \\
+9 & Ammo crate & Green crate outline \\
+10 & Enemy bullet & Red dot radius 3 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Tile slots in use: 0 (blank background), 4--5 (dirt), 6--7 (grass), 8
+(dirt/grass transition), 9 (mud puddle), 10 (dense grass), 11 (artillery
+beam column), 16--41 (A--Z glyphs), 42 (colon), 43 (space), 48--57
+(digits 0--9). Glyphs use palette index 0xFF for lit pixels (white).
+
+Palette: 256 RGB888 entries; \textbf{only some are populated; the rest are
+zero (black).} The active slots are documented inline in
+\texttt{sw/main.c:139--168}, which mirrors \texttt{make\_palette()}.
+\textbf{If you change a palette index here, also change \texttt{sw/main.c}}
+--- the C runtime overwrites the \texttt{\$readmemh} init the moment
+\texttt{nml\_open()} finishes.
+
+The script is invoked manually (\texttt{python3 hw/gen\_rom.py}) before
+synthesis. \textbf{It is not driven by the QSF} --- if you change a sprite
+or palette, you have to regenerate the hex files and re-synthesise.
+
+% ===========================================================================
+\section{\texttt{sw/nml\_gpu.c} / \texttt{sw/nml\_gpu.h} --- userspace driver}
+
+191 lines (\texttt{.c}) + 108 lines (\texttt{.h}).
+
+\begin{itemize}[leftmargin=*]
+  \item \texttt{nml\_open()} (\texttt{sw/nml\_gpu.c:33--59}) opens
+    \texttt{/dev/mem} with \texttt{O\_RDWR | O\_SYNC} and \texttt{mmap}s
+    16\,KB at \texttt{NML\_LWFPGA\_BASE = 0xFF200000}. \textbf{Both
+    \texttt{O\_SYNC} and the \texttt{mmap} flag matter:} they ensure that
+    writes are not cached by the ARM L1.
+  \item \texttt{reg\_write()}/\texttt{reg\_read()} use \texttt{volatile
+    uint32\_t *}. \textbf{Removing \texttt{volatile} will let gcc optimise
+    away repeated polls of \texttt{STATUS}.}
+  \item \texttt{nml\_write\_tile()} (lines 92--99) does a \texttt{volatile
+    uint8\_t *} write. This is the \texttt{STRB} that hits the byte-enable
+    path on the slave. \textbf{If you change this to a 32-bit write with a
+    mask, you trigger the bridge's RMW behaviour and the same lane problem
+    returns.} Keep it as a byte write.
+  \item \texttt{nml\_write\_sprite()} (lines 101--113) packs the 8-byte
+    entry as two 32-bit words, low half then high half. \texttt{flags}
+    lives in W1[15:8]; \texttt{NML\_FLAG\_ACTIVE} ends up at bit 47 of the
+    64-bit packed word.
+  \item \texttt{nml\_hide\_sprite()} (lines 115--125) is
+    belt-and-braces: writes the sentinel coordinates \emph{and} clears the
+    ACTIVE bit.
+  \item \texttt{nml\_commit\_frame()} (lines 179--190) sets \texttt{SWAP}
+    and polls \texttt{SWAP\_PENDING} for up to 200{,}000 reads. \textbf{If
+    the FPGA never clears SWAP\_PENDING, we log a timeout and continue,
+    rather than hang.}
+  \item \texttt{bcd\_pack()} (lines 133--140) packs a small integer into
+    4-bit nibbles, low nibble = ones digit. Used for the score, wave,
+    ammo, and charge HUD fields.
+\end{itemize}
+
+% ===========================================================================
+\section{\texttt{sw/main.c} --- main loop}
+
+275 lines.
+
+\begin{itemize}[leftmargin=*]
+  \item Lines 28--33: SIGINT/SIGTERM handler sets \texttt{g\_running = 0}
+    so the loop exits cleanly. On exit, video is disabled
+    (\texttt{nml\_set\_enable(0)}) and \texttt{/dev/mem} is unmapped.
+    \textbf{Don't kill the binary with \texttt{-9}; you leave the video on
+    with stale sprites.}
+  \item Lines 139--168: palette init. Sixteen entries. The values must
+    match \texttt{hw/gen\_rom.py make\_palette()} or the FPGA's
+    \texttt{\$readmemh}-initialised palette will be overwritten with bogus
+    colours.
+  \item Lines 195--265: main loop body. Read input $\to$ tick $\to$ render
+    $\to$ commit $\to$ pace. Frame target is 16{,}666\,$\mu$s (60\,Hz).
+\end{itemize}
+
+% ===========================================================================
+\section{\texttt{sw/game.c} / \texttt{sw/game.h} --- state machine + entity pool}
+
+Worth memorising the input bits because they appear in \texttt{main.c},
+\texttt{game.c}, and both input readers.
+
+\begin{itemize}[leftmargin=*]
+  \item \texttt{entity\_t} (\texttt{game.h:79--90}) has nine fields.
+    \texttt{phase} is a per-spawn random byte used only by enemy AI.
+    \texttt{ttl} and \texttt{ttl\_max} drive auto-projectile/hazard
+    lifetimes (and the gas grow/shrink animation phase). \texttt{payload}
+    carries which auto-attack kind spawned an \texttt{ENT\_AUTO\_PROJ} or
+    \texttt{ENT\_HAZARD}.
+  \item \texttt{game\_init()} (\texttt{game.c:64--90}) spawns the player at
+    \texttt{(SCREEN\_W/2, SCREEN\_H - 60)} with HP 100. Initial ammo 40,
+    art 2, gas 2. Calls \texttt{wave\_system\_init()} and
+    \texttt{autoatk\_init()}.
+  \item \texttt{update\_player()} (\texttt{game.c:138--165}) clamps the
+    player into $[0, \text{SCREEN\_W}-16] \times [\text{HUD\_H},
+    \text{SCREEN\_H}-16]$. \textbf{\texttt{HUD\_H = 24} --- the player can
+    never enter the top 24 pixels.}
+  \item \texttt{update\_enemies()} (\texttt{game.c:219--254}) calls
+    \texttt{enemy\_rng()} every frame. The window is 12 frames
+    (\texttt{ENEMY\_DIR\_FRAMES}). \textbf{If you change
+    \texttt{ENEMY\_DIR\_FRAMES}, expect the enemy feel to shift
+    dramatically.}
+  \item Lines 248--252: enemy steps over the trench
+    (\texttt{y >= SCREEN\_H - 20}), deactivates, costs the player 10 HP.
+    \textbf{No score for these kills.}
+  \item \texttt{handle\_collisions()} (\texttt{game.c:339--412}) is the
+    only place that decides HP loss, score gain, kill counter, ammo drop.
+    \textbf{Routes through \texttt{apply\_damage()}} for enemy kills.
+  \item Lines 416--426: LEVELUP cursor handling. D-pad left/right wraps
+    modulo \texttt{LEVELUP\_OPTIONS}. B (the down-fire button) is the
+    confirm. \textbf{Hijacked from the four-direction fire system ---
+    \texttt{INPUT\_FIRE} is now aliased to \texttt{INPUT\_FIRE\_DOWN}
+    (\texttt{sw/game.h:31}).}
+\end{itemize}
+
+% ===========================================================================
+\section{\texttt{sw/wave.c} --- wave table}
+
+120 lines. Just the table and the spawner. Five waves, clamps after wave 5.
+
+To rebalance the game, edit the \texttt{WAVES[]} table and rebuild. No
+runtime file I/O, no JSON, no waves.dat. The original DESIGN.md described a
+waves.dat file; we shipped a hard-coded table for simplicity. Change the
+table size and \texttt{WAVE\_COUNT} updates automatically.
+
+% ===========================================================================
+\section{\texttt{sw/autoatk.c} --- auto-attacks}
+
+274 lines.
+
+\begin{itemize}[leftmargin=*]
+  \item Mortar (lines 73--107) is the only timer-driven weapon.
+    \texttt{BASE\_PERIOD[AA\_MORTAR] = 180}, step $-30$ per level, floor 60.
+  \item Artillery (lines 200--219) is player-triggered. Kills every enemy
+    in a 16-pixel column above the player by passing
+    \texttt{ARTILLERY\_KILL\_DMG = 999} through \texttt{apply\_damage()}.
+  \item Gas (lines 224--242) is player-triggered. Spawns ONE
+    \texttt{ENT\_HAZARD} at the player position. The renderer fans this
+    out to up to four sprite slots based on the cloud's current size, but
+    on the game-logic side there is exactly one hazard entity with one
+    hitbox.
+  \item \texttt{autoatk\_pick\_levelup\_options()} (lines 244--264):
+    rejection sampling for 3 distinct weapon kinds out of \texttt{AA\_COUNT
+    = 3}. Always offers all three (with order shuffled).
+\end{itemize}
+
+Common Q\&A: ``How does the player upgrade a weapon they don't own?'' ---
+every weapon starts at level 0 in \texttt{autoatk\_init()}, and
+\texttt{autoatk\_upgrade()} bumps them up. Level 0 is ``not owned and
+inert'' (mortar's \texttt{cooldown} only decrements if \texttt{level > 0},
+line 103). Picking a level-0 weapon at LEVELUP gives it level 1 and a fresh
+cooldown.
+
+% ===========================================================================
+\section{\texttt{sw/render.c} --- entity to sprite-table writer}
+
+422 lines.
+
+\begin{itemize}[leftmargin=*]
+  \item Lines 21--44: sprite\_id and tile\_id constants. \textbf{These must
+    match \texttt{hw/gen\_rom.py} exactly.} Any drift here is the
+    second-worst foot-gun in the project.
+  \item \texttt{render\_init\_tilemap()} (lines 146--152) paints the
+    entire battlefield using \texttt{tile\_for(row, col)} (a deterministic
+    noise function). Called once at startup and again after every
+    game-over $\to$ restart. \textbf{Slow:} 4800 tile writes, each a
+    byte STRB across the LW bridge. Takes a few ms on the board.
+  \item Lines 161--189: artillery beam paint + restore. \textbf{No per-cell
+    shadow.} This works because \texttt{tile\_for(row, col)} is
+    deterministic --- a hidden invariant. If you ever make the tilemap
+    stateful (e.g.\ craters from mortar hits), the beam restore will erase
+    them.
+  \item Lines 230--283: \texttt{render\_levelup}. Slot 0 = player, slots
+    1..3 = three weapon-sprite options at fixed positions (x = 160, 320,
+    480; y = 100), slot 4 = the cursor sprite above the chosen option.
+    Slots 5..31 are hidden.
+  \item Lines 302--340: \texttt{render\_game\_over}. Overwrites the tile
+    map with five lines of centred text. \textbf{This is the screen we
+    know is broken in the current Phase 2 build.}
+  \item Lines 342--421: \texttt{render\_frame()}. On GAMEOVER $\to$
+    PLAYING, calls \texttt{render\_init\_tilemap()} to restore the ground.
+\end{itemize}
+
+% ===========================================================================
+\section{\texttt{sw/render\_terminal.c} --- host renderer}
+
+173 lines. Replays the slot-allocation logic from \texttt{render.c} but
+prints each sprite slot as an ASCII glyph (P for player, A for armed
+enemy, u for unarmed, * for bullet, \texttt{\^} for enemy bullet, + for
+ammo drop, M for mortar, | for artillery, \texttt{\~} for gas, etc.).
+
+Used by \texttt{make terminal}, which also defines
+\texttt{NML\_TERMINAL\_BUILD} so all the FPGA-only code in \texttt{main.c}
+and \texttt{render.h} is compiled out. Frame pacing is \texttt{nanosleep}
+only.
+
+% ===========================================================================
+\section{\texttt{sw/input\_real.c} --- evdev reader}
+
+176 lines.
+
+\begin{itemize}[leftmargin=*]
+  \item Lines 45--58: button code map. \textbf{Verified on this specific
+    KIWITATA SNES-style DragonRise pad (VID 0079:0011). If a different pad
+    is used, set \texttt{NML\_INPUT\_DEBUG=1} and watch stderr for the raw
+    event codes.}
+  \item Lines 76--84: axis range query via \texttt{EVIOCGABS}. Cache min,
+    max, centre, and initial value at open time. Some pads report 0..255,
+    some $-32768..32767$, some $-1..0..1$. The deadzone threshold is
+    range/4.
+  \item Lines 127--147: drain events nonblocking. Updates the persistent
+    \texttt{button\_state} bitmask and the axis values. \textbf{No
+    threading; events are drained on every \texttt{input\_read()} call.}
+  \item Lines 87--97: if \texttt{open("/dev/input/event0")} fails, we set
+    \texttt{ev\_fd = FD\_DISABLED} and return zero input forever. The
+    game keeps running without controller input --- useful for bring-up
+    debug.
+\end{itemize}
+
+% ===========================================================================
+\section{\texttt{sw/input\_fake.c} --- stub}
+
+44 lines. A fixed cycle over 480 frames that exercises every direction and
+every face button. Used in \texttt{make terminal} and \texttt{make
+fake-input}. \textbf{Tip:} if you want a different fake cycle, edit this
+file rather than smudging it into \texttt{input\_real.c} with
+\texttt{\#ifdef}s. The two implementations are entirely separate.
+
+% ===========================================================================
+\section{\texttt{sw/Makefile}}
+
+73 lines. Targets: default (cross-compile for armhf with
+\texttt{input\_real.c}), \texttt{native} (compile on the board),
+\texttt{fake-input} (cross-compile for armhf with \texttt{input\_fake.c}),
+\texttt{terminal} (host build with \texttt{render\_terminal.c} and
+\texttt{input\_fake.c}), \texttt{clean}.
+
+Cross-compiler: \texttt{arm-linux-gnueabihf-gcc}. \texttt{-static}
+everywhere so we don't have to match glibc versions against the board's
+rootfs.
+
+% ===========================================================================
+\section{Boot and run on the board}
+
+The full procedure is in \texttt{SETUP.md}. Cliffs Notes:
+
+\begin{enumerate}[leftmargin=*,nosep]
+  \item Build the bitstream from \texttt{nml\_gpu\_hw/}
+    (\texttt{make qsys \&\& make quartus \&\& make rbf}).
+  \item Build the DTB (\texttt{make dtb}).
+  \item Mount the SD card, copy \texttt{soc\_system.rbf} and
+    \texttt{soc\_system.dtb} onto the FAT boot partition (exact names
+    required), eject.
+  \item Boot. Linux comes up at \texttt{login:}. Username \texttt{root}, no
+    password.
+  \item \texttt{ls /proc/device-tree/sopc@0/bridge@0xc0000000/} should show
+    \texttt{vga@0x100000000}.
+  \item \texttt{scp sw/nml\_game root@<board>:/root/} and run it.
+\end{enumerate}
+
+% ===========================================================================
+\section{Known bugs and fragile spots (as of 2026-05-12)}
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Stripe rendering bug.} The Phase 2 build shows vertical
+    stripes across the entire screen. Investigation pointed at the
+    tile-map byte-enable path (see academic report §9.5). The packed-byte
+    storage in \texttt{hw/nml\_gpu.sv:150--173} and the byte-address
+    packing in \texttt{hw/avalon\_slave\_iface.sv:169--178} are the two
+    surfaces in scope.\\
+    Untested hypothesis: the read-side byte select
+    (\texttt{tilemap\_word\_pix[tilemap\_raddr\_lo\_r]}) is correct, but
+    the \emph{write-side} address mapping in
+    \texttt{avalon\_slave\_iface} sets
+    \texttt{mem\_waddr = \{avs\_address[13], avs\_address[11:0]\}} which
+    is a 13-bit value indexing a 1200-deep array --- the top bit at
+    \texttt{mem\_waddr[12]} is being passed through, but the
+    \texttt{tilemap\_ram} index in \texttt{hw/nml\_gpu.sv:161} uses
+    \texttt{mem\_waddr[12:2]} to get a word index. The result is a
+    11-bit word index, range 0..2047. The tile map has 1200 words.
+    \textbf{Writes to word indices > 1199 may be silently ignored (or
+    worse, alias).} Action item: verify the bridge cannot drive
+    \texttt{avs\_address} outside the declared region, or clamp it
+    explicitly.
+  \item \textbf{Broken Game-Over screen.} Likely the same root cause as
+    the stripes --- the tile-map writes for the centred text don't all
+    land where they should.
+  \item \textbf{\texttt{\$readmemh} paths are relative.} Synthesise from a
+    different cwd and the ROMs come up zeroed.
+  \item \textbf{\texttt{STATUS[15:8]} frame counter is hard-coded to 0} in
+    \texttt{hw/nml\_gpu.sv:231}. Not a bug per se; just unconnected.
+  \item \textbf{Sprite fetch can't finish all 8 sprites within a single
+    HBLANK.} Works only because the line buffer is double-buffered ---
+    the fetch can spill into the visible region of the previous line. A
+    9th sprite per scanline would not fit.
+  \item \textbf{Compositor tile address goes out of range during
+    porches.} \texttt{tile\_row} reaches 65 at $y = 524$; tile map has 60
+    rows. Currently masked by \texttt{VGA\_BLANK\_N = 0}. Don't remove
+    the blanking gate.
+  \item \textbf{No active bit was in the design doc;} the hardware reads
+    bit 47 as an explicit ACTIVE flag. The C driver hides via both
+    paths.
+  \item \textbf{\texttt{sw/main.c} palette init must match
+    \texttt{hw/gen\_rom.py}.} No build-time check.
+  \item \textbf{Quartus timing report shows $-5$\,ns slack on
+    \texttt{pix\_clk}.} False positive --- the divide-by-2 register is
+    promoted to a global clock and works on silicon. Ignore until the
+    \texttt{altera\_pll} swap.
+\end{itemize}
+
+% ===========================================================================
+\section{What would break if changed}
+
+\begin{itemize}[leftmargin=*,nosep]
+  \item Remove \texttt{vga\_clk = \textasciitilde pix\_clk} inversion
+    $\to$ DAC samples on the FPGA's transition, colour fringing.
+  \item Remove the \texttt{eval\_done\_r} sustain latch $\to$ fetch
+    starves on 15 of 16 scanlines.
+  \item Unpack the tile-map RAM to \texttt{[7:0] [0:4799]} $\to$ byte
+    writes from the bridge clobber three lanes per word.
+  \item Remove \texttt{avs\_waitrequest} on RAM reads $\to$ master
+    samples stale \texttt{*\_rdata\_sw}.
+  \item Shrink \texttt{swap\_req\_cnt} below 3 $\to$ pixel-clock
+    synchroniser misses SWAP requests.
+  \item Move \texttt{\$readmemh} files or change Quartus cwd without
+    updating \texttt{SEARCH\_PATH} $\to$ ROMs come up zeroed.
+  \item Change the sprite IDs in \texttt{render.c} without updating
+    \texttt{gen\_rom.py} $\to$ entities draw with the wrong sprite art.
+  \item Change the palette in \texttt{gen\_rom.py} without updating
+    \texttt{sw/main.c init\_palette\_runtime()} $\to$ palette init at
+    startup overwrites the correct values with the C-side stale copies.
+  \item Drop the \texttt{VGA\_BLANK\_N} gate $\to$ out-of-range tile
+    addresses leak garbage onto the porches.
+  \item Drop \texttt{MAP\_SHARED | O\_SYNC} on the \texttt{/dev/mem}
+    open $\to$ ARM L1 caches MMIO and the SWAP polling loop never sees
+    the FPGA's view.
+  \item Remove \texttt{-static} from \texttt{sw/Makefile} $\to$ binary
+    fails to link on the board (glibc version mismatch).
+\end{itemize}
+
+% ===========================================================================
+\section*{End notes}
+\addcontentsline{toc}{section}{End notes}
+
+If a professor asks you about a specific module, open the file in this
+doc, walk them through it line by line. The cycle counts in §6 (eval) and
+the worst-case math in §7 (fetch) are the two numbers most likely to come
+up. The ``why the slave widens SWAP'' story in §4 / §9.3 of the academic
+report is a good example of CDC discipline if asked to defend the design.
+
+For the stripe bug specifically: \textbf{own it.} It is a real bug, the
+hypothesis is articulated, and the next-step diagnosis is in the academic
+report. The professor will respect a documented unknown more than a
+confident hand-wave.
+
+\end{document}
