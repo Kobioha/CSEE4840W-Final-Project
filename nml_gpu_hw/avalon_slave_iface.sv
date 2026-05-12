@@ -167,7 +167,13 @@ module avalon_slave_iface (
             mem_waddr = {5'b0, avs_address[9:2]};  // 8-bit palette entry index
             if (avs_write) palette_we = 1'b1;
         end else if (region_tilemap) begin
-            mem_waddr = avs_address[12:0];         // tilemap is byte-addressed
+            // Byte offset within the tile-map region (avs_address - 0x1000).
+            // Packed as {avs_address[13], avs_address[11:0]}: for addresses
+            // 0x1000-0x1FFF, bit 13=0 and bit 12=1 so this gives 0x000-0xFFF.
+            // For 0x2000-0x22BF, bit 13=1 and bit 12=0 so this gives 0x1000-
+            // 0x12BF. Truncating to [12:0] (the old behavior) aliased the
+            // upper half on top of the lower half and clobbered rows 0..8.
+            mem_waddr = {avs_address[13], avs_address[11:0]};
             if (avs_write) tilemap_we = 1'b1;
         end
     end
