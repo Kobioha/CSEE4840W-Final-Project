@@ -135,26 +135,52 @@ module nml_gpu (
     end
     always_ff @(posedge pix_clk) palette_rdata <= palette_ram[palette_raddr];
 
-    // C. Tile Map RAM
-    logic [7:0] tilemap_ram [0:4799];
+    // C. Tile Map RAM -- stored as 32-bit words (1200 x 4 B = 4800 B).
+    // Background: the HPS-LW bridge implements ARM STRB (byte writes) as a
+    // {word-read, byte-modify, word-write} sequence at the slave with
+    // byteenable=4'b1111. With byte-organized storage we could only return
+    // one byte per word read; the bridge then saw {0,0,0,byte0} on readback
+    // and wrote {0,0,0,byte0}+mod back, silently dropping bytes 1/2/3 at
+    // every word. The visible symptom was "only every 4th column gets the
+    // new tile; the other 3 stay at the reset value 0 (brown)".
+    //
+    // 32-bit-word storage lets us (a) return all 4 bytes per word read so
+    // bridge RMW preserves untouched bytes, and (b) gate per-lane writes on
+    // avs_byteenable so any sub-word or full-word write commits exactly the
+    // intended bytes. Quartus infers this as an M10K with native byteena_a.
+    logic [31:0] tilemap_ram [0:1199];
     logic [12:0] tilemap_raddr;
     logic [7:0]  tilemap_rdata;
     logic [31:0] tilemap_rdata_sw;
+    logic [31:0] tilemap_word_pix;
+    logic [1:0]  tilemap_raddr_lo_r;
 
     always_ff @(posedge clk) begin
         if (tilemap_we) begin
-            // SW emits byte writes (STRB) so avs_address[1:0] -> mem_waddr[1:0]
-            // selects which 8-bit lane of mem_wdata holds the new tile byte.
-            case (mem_waddr[1:0])
-                2'b00: tilemap_ram[mem_waddr] <= mem_wdata[7:0];
-                2'b01: tilemap_ram[mem_waddr] <= mem_wdata[15:8];
-                2'b10: tilemap_ram[mem_waddr] <= mem_wdata[23:16];
-                2'b11: tilemap_ram[mem_waddr] <= mem_wdata[31:24];
-            endcase
+            if (avs_byteenable[0]) tilemap_ram[mem_waddr[12:2]][7:0]   <= mem_wdata[7:0];
+            if (avs_byteenable[1]) tilemap_ram[mem_waddr[12:2]][15:8]  <= mem_wdata[15:8];
+            if (avs_byteenable[2]) tilemap_ram[mem_waddr[12:2]][23:16] <= mem_wdata[23:16];
+            if (avs_byteenable[3]) tilemap_ram[mem_waddr[12:2]][31:24] <= mem_wdata[31:24];
         end
-        tilemap_rdata_sw <= {24'd0, tilemap_ram[mem_waddr]};
+        tilemap_rdata_sw <= tilemap_ram[mem_waddr[12:2]];
     end
-    always_ff @(posedge pix_clk) tilemap_rdata <= tilemap_ram[tilemap_raddr];
+
+    // Pix-clk read port: register the word, then combinationally extract the
+    // byte the compositor asked for. Same 1-cycle raddr->rdata latency as
+    // before, so compositor pipeline stays unchanged.
+    always_ff @(posedge pix_clk) begin
+        tilemap_word_pix   <= tilemap_ram[tilemap_raddr[12:2]];
+        tilemap_raddr_lo_r <= tilemap_raddr[1:0];
+    end
+    always_comb begin
+        case (tilemap_raddr_lo_r)
+            2'b00:   tilemap_rdata = tilemap_word_pix[7:0];
+            2'b01:   tilemap_rdata = tilemap_word_pix[15:8];
+            2'b10:   tilemap_rdata = tilemap_word_pix[23:16];
+            2'b11:   tilemap_rdata = tilemap_word_pix[31:24];
+            default: tilemap_rdata = 8'd0;
+        endcase
+    end
 
     // D. Sprite ROM & Tile ROM ($readmemh initialization)
     logic [7:0] sprite_rom [0:16383];
