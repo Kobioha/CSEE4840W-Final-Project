@@ -8,6 +8,8 @@ LaTeX sources for the two project write-ups, plus the compiled PDFs.
 | `academic_report.pdf`     | Compiled PDF.                                                |
 | `internal_deep_dive.tex`  | Source for the team's no-holds-barred walkthrough (14 pages).|
 | `internal_deep_dive.pdf`  | Compiled PDF.                                                |
+| `slides.tex`              | Beamer source for the final-presentation deck (17 slides).   |
+| `slides.pdf`              | Compiled slide deck (16:9 widescreen).                       |
 | `build/`                  | Intermediate LaTeX artefacts (`.aux`, `.log`, `.toc`, …).    |
 
 The Markdown originals live in `../docs/` (`academic_report.md`,
@@ -34,8 +36,10 @@ Then, from this directory:
 ```sh
 latexmk -pdf -outdir=build -auxdir=build academic_report.tex
 latexmk -pdf -outdir=build -auxdir=build internal_deep_dive.tex
+latexmk -pdf -outdir=build -auxdir=build slides.tex
 cp build/academic_report.pdf academic_report.pdf
 cp build/internal_deep_dive.pdf internal_deep_dive.pdf
+cp build/slides.pdf slides.pdf
 ```
 
 `latexmk` re-runs `pdflatex` as many times as needed to settle the table of
