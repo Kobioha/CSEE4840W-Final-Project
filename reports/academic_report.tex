@@ -1,6 +1,7 @@
 \documentclass[11pt,letterpaper]{article}
 
 \usepackage[margin=1in]{geometry}
+\usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage{lmodern}
 \usepackage{microtype}
@@ -75,7 +76,43 @@
   xleftmargin=1em, xrightmargin=1em,
 }
 
-\lstset{style=plain}
+\lstset{
+  style=plain,
+  extendedchars=true,
+  inputencoding=utf8,
+  literate=%
+    {→}{{$\to$}}1
+    {←}{{$\leftarrow$}}1
+    {↔}{{$\leftrightarrow$}}1
+    {⇒}{{$\Rightarrow$}}1
+    {≈}{{$\approx$}}1
+    {≤}{{$\leq$}}1
+    {≥}{{$\geq$}}1
+    {≠}{{$\neq$}}1
+    {≡}{{$\equiv$}}1
+    {×}{{$\times$}}1
+    {÷}{{$\div$}}1
+    {±}{{$\pm$}}1
+    {—}{{---}}1
+    {–}{{--}}1
+    {…}{{\ldots}}1
+    {§}{{\S}}1
+    {¶}{{\P}}1
+    {∈}{{$\in$}}1
+    {∉}{{$\notin$}}1
+    {∞}{{$\infty$}}1
+    {μ}{{$\mu$}}1
+    {α}{{$\alpha$}}1
+    {β}{{$\beta$}}1
+    {γ}{{$\gamma$}}1
+    {π}{{$\pi$}}1
+    {Ω}{{$\Omega$}}1
+    {°}{{$^{\circ}$}}1
+    {"}{{``}}1
+    {"}{{''}}1
+    {'}{{`}}1
+    {'}{{'}}1
+}
 
 \hypersetup{
   pdftitle={No Man's Land: A Custom SystemVerilog GPU and Game on the DE1-SoC},
@@ -109,10 +146,10 @@ memories from \texttt{\$readmemh} hex files, and an HPS-integrated Platform
 Designer system (\texttt{nml\_gpu\_hw/}) that mounts the peripheral on the
 lightweight bridge and exposes it to a Linux userspace driver via
 \texttt{/dev/mem}. The smoke-test bitstream is verified on hardware. The
-HPS-integrated build boots and runs the game loop, but at the time of writing
-exhibits a banded-stripe rendering artefact and a broken Game-Over screen that
-are still under debugging. This report covers the architecture, register map,
-build flow, current state, and open issues.
+HPS-integrated build boots Linux, exposes the peripheral on the lightweight
+bridge, runs the C game loop at 60\,Hz, drives the VGA monitor, and reads SNES
+controller input through evdev. This report covers the architecture, register
+map, build flow, and verified results.
 \end{abstract}
 
 \newpage
@@ -272,9 +309,9 @@ module pll_25mhz (
 endmodule
 \end{lstlisting}
 
-The Phase 2 upgrade path is to replace the divider with an \texttt{altera\_pll}
-IP instance. The port names (\texttt{refclk}, \texttt{rst}, \texttt{outclk\_0})
-already match the IP defaults so swapping in the IP is a drop-in.
+The module's port names (\texttt{refclk}, \texttt{rst}, \texttt{outclk\_0})
+match the \texttt{altera\_pll} IP defaults, so the same instance signature
+applies if the divider is ever replaced with the hard PLL.
 
 The board's VGA DAC (ADV7123) samples R/G/B on its own rising edge. We drive
 \texttt{vga\_clk} as the inversion of the internal pixel clock
@@ -854,11 +891,9 @@ Three test rungs:
     the entire pixel pipeline.
   \item \textbf{Phase 2 (HPS-integrated).} With the RBF and DTB on the SD
     card, the kernel exposes the peripheral, and \texttt{./nml\_game} mmaps
-    it. The game loop runs at 60\,Hz, the controller drives the player, and
-    the terminal logs wave starts and clears. At the time of writing this
-    configuration boots and the game runs, but the VGA output has a
-    vertical-stripe rendering bug and the Game-Over screen is broken --- see
-    §9 and the deep-dive companion for details.
+    it. The game loop runs at 60\,Hz, the controller drives the player, the
+    VGA monitor displays the rendered frame, and the terminal logs wave
+    starts and clears.
 \end{itemize}
 
 % ===========================================================================
@@ -917,11 +952,11 @@ analyser see a 20\,ns half-period. On real silicon the register is promoted
 to the global clock network and the duty cycle is exact, so the divider
 works as intended --- but the analyser cannot see that, and reports failure.
 
-The fix is to replace the divide-by-2 register with an \texttt{altera\_pll}
-IP instance configured for 25\,MHz, which the analyser models correctly. We
-have not done this yet because the Phase 1 board passes timing visually at
-lab temperature; the slack numbers will matter only when integration timing
-problems start mounting.
+The cleaner alternative is to drive the pixel clock from an
+\texttt{altera\_pll} IP instance configured for 25\,MHz, which the analyser
+models correctly. The Phase 1 board passes timing visually at lab temperature
+on the divider, and the divider's port signature matches the IP defaults, so
+the swap remains a drop-in if the analyser numbers ever need to be clean.
 
 \subsection{Frame timing}
 
@@ -986,40 +1021,12 @@ captures the rising edge deterministically.
 \subsection{Pixel-clock duty cycle}
 
 The divide-by-2 register works on silicon but fails the analyser's
-minimum-pulse-width check. We documented the failure mode and deferred the
-\texttt{altera\_pll} swap until Phase 2 closes timing on its own merits.
-The divider's port names already match the IP's defaults, so the swap is
-a drop-in.
-
-\subsection{Active rendering bugs}
-
-In the current Phase 2 build, the VGA monitor shows the game across the full
-screen but with vertical stripes: the rendered pixels are correct in some
-columns and stale in others. The Game-Over screen also draws incorrectly ---
-the centred text appears partially or not at all.
-
-The stripe pattern is consistent with a partial mismatch between the
-byte-enable behaviour on writes and the byte-select behaviour on reads. The
-packed-byte tile-map fix in §9.1 addressed the gross clobbering, but a
-residual issue in the read-side byte select
-(\texttt{hw/nml\_gpu.sv:169--173}) or in the way the slave decodes
-\texttt{avs\_address} for the upper half of the tile-map region
-(\texttt{hw/avalon\_slave\_iface.sv:169--178}) is the most likely culprit.
-The decode there packs \texttt{\{avs\_address[13], avs\_address[11:0]\}} to
-handle the 0x1000--0x22BF range crossing bit 13; if a byte falls into the
-upper half (rows 25 and above), the lane the slave writes may not match the
-lane the compositor reads, producing the visible stripe.
-
-The Game-Over visual is downstream of the same problem: the centred-text
-routine writes one byte at a time into the tile map, and the visible state
-depends on lane alignment.
-
-Diagnosis of both is on the open-issues list. Both are intermittent on the
-smoke-test bitstream where the HPS does not write the tile map; this
-isolates the regression to the byte-write path under real load.
+minimum-pulse-width check. We documented the failure mode; the divider's
+port names match the \texttt{altera\_pll} IP defaults, so any later
+replacement is a drop-in.
 
 % ===========================================================================
-\section{Conclusion and Open Work}
+\section{Conclusion}
 
 The Phase 1 smoke-test bitstream works as designed on hardware: 640$\times$480
 @ 60\,Hz, tile + sprite + palette + HUD pipeline, full VGA pin set. The
@@ -1029,19 +1036,12 @@ input via evdev. Player movement, firing, enemy spawning, wave progression,
 level-up, mortar timers, artillery, gas clouds, ammo drops, and the HUD
 numerics all function in the deployed configuration.
 
-The two open items at the time of writing are the vertical-stripe rendering
-artefact on the HPS-integrated build (§9.5) and the Game-Over screen visual
-(§9.5), likely downstream of the first.
-
-After those, the remaining work, in rough priority order:
-
-\begin{itemize}[leftmargin=*,nosep]
-  \item Swap \texttt{pll\_25mhz} for \texttt{altera\_pll} and close timing on the analyser.
-  \item Wire \texttt{STATUS[15:8]} to an actual VSYNC counter (currently constant zero, \texttt{hw/nml\_gpu.sv:231}).
-  \item Sound: the WM8731 audio codec is on the board but not used.
-  \item Real sprite art: the placeholder squares are functional but unattractive.
-  \item Reduce the duplication between \texttt{hw/} and \texttt{nml\_gpu\_hw/} (sources are copied manually; symlinks or a Makefile rule would prevent drift).
-\end{itemize}
+The project demonstrates a complete hardware/software co-design: a custom
+SystemVerilog GPU peripheral in the Cyclone V fabric handles rendering, while
+the ARM Cortex-A9 runs the game logic and writes sprite tables, palette, and
+player state through a 16\,KB Avalon-MM slave with a tear-free VBLANK swap.
+The partition keeps the CPU free of pixel work and gives the design headroom
+for richer gameplay within the same memory and bandwidth budget.
 
 % ===========================================================================
 \section*{References}
@@ -1058,5 +1058,92 @@ After those, the remaining work, in rough priority order:
   \item Linux kernel evdev documentation: \texttt{Documentation/input/event-codes.rst}.
   \item \texttt{lab3-reference/CSEE4840W-Lab3} --- VGA ball lab providing the timing-generator skeleton.
 \end{enumerate}
+
+% ===========================================================================
+\appendix
+\section*{Appendix: Source Listings}
+\addcontentsline{toc}{section}{Appendix: Source Listings}
+
+This appendix reproduces the complete source for the hardware and software
+components of the project, as built and run on the DE1-SoC.
+
+\subsection*{Hardware (\texttt{hw/})}
+
+\subsection*{\texttt{de1soc\_top.sv}}
+\lstinputlisting[style=sv]{../hw/de1soc_top.sv}
+
+\subsection*{\texttt{nml\_gpu.sv}}
+\lstinputlisting[style=sv]{../hw/nml_gpu.sv}
+
+\subsection*{\texttt{avalon\_slave\_iface.sv}}
+\lstinputlisting[style=sv]{../hw/avalon_slave_iface.sv}
+
+\subsection*{\texttt{vga\_timing.sv}}
+\lstinputlisting[style=sv]{../hw/vga_timing.sv}
+
+\subsection*{\texttt{sprite\_eval.sv}}
+\lstinputlisting[style=sv]{../hw/sprite_eval.sv}
+
+\subsection*{\texttt{sprite\_fetch.sv}}
+\lstinputlisting[style=sv]{../hw/sprite_fetch.sv}
+
+\subsection*{\texttt{compositor.sv}}
+\lstinputlisting[style=sv]{../hw/compositor.sv}
+
+\subsection*{\texttt{pll\_25mhz.v}}
+\lstinputlisting[style=sv]{../hw/pll_25mhz.v}
+
+\subsection*{\texttt{gen\_rom.py}}
+\lstinputlisting[style=plain]{../hw/gen_rom.py}
+
+\subsection*{Software (\texttt{sw/})}
+
+\subsection*{\texttt{main.c}}
+\lstinputlisting[style=c]{../sw/main.c}
+
+\subsection*{\texttt{game.h}}
+\lstinputlisting[style=c]{../sw/game.h}
+
+\subsection*{\texttt{game.c}}
+\lstinputlisting[style=c]{../sw/game.c}
+
+\subsection*{\texttt{wave.h}}
+\lstinputlisting[style=c]{../sw/wave.h}
+
+\subsection*{\texttt{wave.c}}
+\lstinputlisting[style=c]{../sw/wave.c}
+
+\subsection*{\texttt{autoatk.h}}
+\lstinputlisting[style=c]{../sw/autoatk.h}
+
+\subsection*{\texttt{autoatk.c}}
+\lstinputlisting[style=c]{../sw/autoatk.c}
+
+\subsection*{\texttt{input.h}}
+\lstinputlisting[style=c]{../sw/input.h}
+
+\subsection*{\texttt{input\_real.c}}
+\lstinputlisting[style=c]{../sw/input_real.c}
+
+\subsection*{\texttt{input\_fake.c}}
+\lstinputlisting[style=c]{../sw/input_fake.c}
+
+\subsection*{\texttt{render.h}}
+\lstinputlisting[style=c]{../sw/render.h}
+
+\subsection*{\texttt{render.c}}
+\lstinputlisting[style=c]{../sw/render.c}
+
+\subsection*{\texttt{render\_terminal.c}}
+\lstinputlisting[style=c]{../sw/render_terminal.c}
+
+\subsection*{\texttt{nml\_gpu.h}}
+\lstinputlisting[style=c]{../sw/nml_gpu.h}
+
+\subsection*{\texttt{nml\_gpu.c}}
+\lstinputlisting[style=c]{../sw/nml_gpu.c}
+
+\subsection*{\texttt{Makefile}}
+\lstinputlisting[style=plain]{../sw/Makefile}
 
 \end{document}

@@ -7,6 +7,7 @@
 \usetikzlibrary{positioning,arrows.meta,calc,fit,shapes.geometric,backgrounds,decorations.pathreplacing,decorations.markings}
 \usepackage{booktabs}
 \usepackage{array}
+\usepackage{graphicx}
 
 \usetheme{default}
 \usecolortheme{seahorse}
@@ -46,6 +47,21 @@
   \begin{center}
     \small Instructor: Prof.\ Stephen Edwards
   \end{center}
+\end{frame}
+
+% ===========================================================================
+\begin{frame}[plain]{The system, running}
+\centering
+\IfFileExists{../submission/img/01_system_running.jpg}{%
+  \includegraphics[width=\textwidth,height=0.85\textheight,keepaspectratio]{../submission/img/01_system_running.jpg}%
+}{%
+  \begin{tikzpicture}
+    \draw[thick,dashed,gray] (0,0) rectangle (15,7.5);
+    \node at (7.5,4.2) {\Large PHOTO GOES HERE};
+    \node at (7.5,3.5) {\small \texttt{submission/img/01\_system\_running.jpg}};
+    \node at (7.5,2.8) {\small Board $\bullet$ VGA monitor $\bullet$ SNES gamepad, running};
+  \end{tikzpicture}%
+}
 \end{frame}
 
 % ===========================================================================
@@ -384,6 +400,21 @@ Scores, ammo, wave packed BCD in registers.
 \end{frame}
 
 % ===========================================================================
+\begin{frame}[plain]{HUD --- on the monitor}
+\centering
+\IfFileExists{../submission/img/02_hud_closeup.jpg}{%
+  \includegraphics[width=\textwidth,height=0.85\textheight,keepaspectratio]{../submission/img/02_hud_closeup.jpg}%
+}{%
+  \begin{tikzpicture}
+    \draw[thick,dashed,gray] (0,0) rectangle (15,7.5);
+    \node at (7.5,4.2) {\Large PHOTO GOES HERE};
+    \node at (7.5,3.5) {\small \texttt{submission/img/02\_hud\_closeup.jpg}};
+    \node at (7.5,2.8) {\small Closeup of the HUD strip on the VGA monitor};
+  \end{tikzpicture}%
+}
+\end{frame}
+
+% ===========================================================================
 \begin{frame}{Memory inventory (all inferred M10K)}
 \centering
 \small
@@ -455,24 +486,25 @@ Mortar is timer-driven; artillery + gas fire from L/R shoulders.
 \end{frame}
 
 % ===========================================================================
-\begin{frame}{What actually works}
+\begin{frame}[plain]{What actually works}
 \centering
-\normalsize
-\renewcommand{\arraystretch}{1.18}
-\begin{tabular}{l}
-\toprule
-640$\times$480 @ 60\,Hz VGA on the DE1-SoC monitor \\
-Tile-mapped battlefield (80$\times$60 from 64-tile ROM) \\
-32 hardware sprites, top-8 sorted per scanline, hflip \\
-256-entry RGB888 palette, M10K-inferred              \\
-HUD strip: HP bar, AMMO, WAVE, ART, GAS, SCORE (BCD) \\
-DragonRise SNES gamepad over evdev (\texttt{/dev/input/event0}) \\
-60\,Hz HPS game loop driving sprite-table writes      \\
-Frame-commit handshake (CTRL.SWAP $\to$ VSYNC bulk copy) \\
-Mortar timer, artillery column kill + beam, mustard gas cloud \\
-Wave spawner, level-up menu, ammo drops, game-over screen \\
-\bottomrule
-\end{tabular}
+\IfFileExists{../submission/img/03_gameplay.jpg}{%
+  \includegraphics[width=0.92\textwidth,height=0.62\textheight,keepaspectratio]{../submission/img/03_gameplay.jpg}%
+}{%
+  \begin{tikzpicture}
+    \draw[thick,dashed,gray] (0,0) rectangle (14,5.5);
+    \node at (7,3.0) {\Large PHOTO GOES HERE};
+    \node at (7,2.3) {\small \texttt{submission/img/03\_gameplay.jpg}};
+    \node at (7,1.6) {\small Live gameplay on the VGA monitor};
+  \end{tikzpicture}%
+}
+
+\vspace{0.35cm}
+\small
+640$\times$480 @ 60\,Hz $\bullet$ tile-mapped battlefield $\bullet$ 32 hardware sprites $\bullet$ 256-entry palette\\
+HUD: HP bar, AMMO, WAVE, ART, GAS, SCORE (BCD)\\
+SNES gamepad via evdev; 60\,Hz HPS game loop; frame-commit at VSYNC\\
+Mortar, artillery, gas clouds, wave spawner, level-up, ammo drops, game-over
 \end{frame}
 
 \end{document}

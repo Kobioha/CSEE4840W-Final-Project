@@ -37,6 +37,6 @@
 \contentsline {subsection}{\numberline {9.2}Single-cycle \texttt {eval\_done} against multi-cycle \texttt {CLEAR\_BUF}}{16}{subsection.9.2}%
 \contentsline {subsection}{\numberline {9.3}CDC on \texttt {ctrl\_swap\_req}}{16}{subsection.9.3}%
 \contentsline {subsection}{\numberline {9.4}Pixel-clock duty cycle}{16}{subsection.9.4}%
-\contentsline {subsection}{\numberline {9.5}Active rendering bugs}{17}{subsection.9.5}%
-\contentsline {section}{\numberline {10}Conclusion and Open Work}{17}{section.10}%
+\contentsline {section}{\numberline {10}Conclusion}{17}{section.10}%
 \contentsline {section}{References}{17}{section*.12}%
+\contentsline {section}{Appendix: Source Listings}{17}{section*.13}%
