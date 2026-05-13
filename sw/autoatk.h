@@ -16,7 +16,7 @@ void          autoatk_tick(game_t *g);
 void          autoatk_update_proj(game_t *g);
 
 /* Bumps the given weapon's level (capped at AA_LEVEL_CAP) and refreshes its
-   period (mortar only — Gas/Artillery upgrades currently affect nothing
+   period (mortar only; Gas/Artillery upgrades currently affect nothing
    game-side besides scoring "owned" semantics, but we still track levels so
    the level-up menu can show them). Picking a maxed weapon is a no-op. */
 void          autoatk_upgrade(game_t *g, autoatk_kind_t k);

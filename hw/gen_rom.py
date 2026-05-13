@@ -71,8 +71,8 @@ PAL_ARTILLERY    = 0x17
 PAL_AMMO_DROP    = 0x18
 PAL_ENEMY_BULLET = 0x19
 # Battlefield ground palette (top-down view, pixel-art style):
-PAL_BG           = 0x20   # PAL_DIRT_MID    — primary dirt color
-PAL_BG_ACCENT    = 0x21   # PAL_DIRT_LIGHT  — dirt highlight
+PAL_BG           = 0x20   # PAL_DIRT_MID    -- primary dirt color
+PAL_BG_ACCENT    = 0x21   # PAL_DIRT_LIGHT  -- dirt highlight
 PAL_DIRT_MID     = 0x20
 PAL_DIRT_LIGHT   = 0x21
 PAL_DIRT_DARK    = 0x22
@@ -192,7 +192,7 @@ def make_sprite_rom() -> bytearray:
 # 8x8 letter glyphs. Each cell is a tuple of 8 strings of 8 chars where '#'
 # marks a lit pixel (PAL_BORDER white) and any other char leaves the pixel as
 # the tile background (palette index 0 -> compositor draws RGB_HUD_BG).
-# Designed in a 5-wide × 7-tall window with 1-pixel margins so adjacent
+# Designed in a 5-wide x 7-tall window with 1-pixel margins so adjacent
 # glyphs don't run together when stitched at 8-px boundaries.
 LETTER_GLYPHS = {
     'A': ("........",

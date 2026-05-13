@@ -4,7 +4,7 @@ module compositor (
     input  logic        visible,
     input  logic [15:0] scroll_x, scroll_y,
 
-    // HUD overlay inputs (per DESIGN.md §4.4 + Batch B extensions)
+    // HUD overlay inputs (per DESIGN.md Sec. 4.4 + Batch B extensions)
     input  logic        hud_on,
     input  logic [31:0] player_stats,    // [7:0] hp, [15:8] wave BCD, [31:16] level
     input  logic [31:0] score_reg,       // [23:0] 6-digit BCD score
@@ -95,7 +95,7 @@ module compositor (
                        || in_score_label || in_score_text;
     wire in_hud_gap     = in_hud_strip && !in_hp_bar && !in_hud_text;
 
-    // HP bar fill: hp*2 px clamped to 192 (hp ∈ 0..100, bar width 192).
+    // HP bar fill: hp*2 px clamped to 192 (hp in 0..100, bar width 192).
     wire [8:0] hp_x2          = {1'b0, player_stats[7:0]} << 1;
     wire [8:0] hp_bar_width   = (hp_x2 > 9'd192) ? 9'd192 : hp_x2;
     wire       hp_filled      = ({1'b0, x[8:0]} < hp_bar_width);

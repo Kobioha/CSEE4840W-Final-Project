@@ -1,5 +1,5 @@
 # Fdb version 4
-["pdflatex"] 1778617894.16953 "slides.tex" "build/slides.pdf" "slides" 1778617895.31183 0
+["pdflatex"] 1778682381.33232 "slides.tex" "build/slides.pdf" "slides" 1778682382.49473 0
   "/usr/local/texlive/2026/texmf-dist/fonts/enc/dvips/lm/lm-ec.enc" 1254269338 2375 baa924870cfb487815765f9094cf3728 ""
   "/usr/local/texlive/2026/texmf-dist/fonts/enc/dvips/lm/lm-mathit.enc" 1202520719 2405 5dcf2c1b967ee25cc46c58cd52244aed ""
   "/usr/local/texlive/2026/texmf-dist/fonts/enc/dvips/lm/lm-mathsy.enc" 1202520719 2840 216e6e45ad352e2456e1149f28885bee ""
@@ -253,9 +253,9 @@
   "/usr/local/texlive/2026/texmf-var/fonts/map/pdftex/updmap/pdftex.map" 1775674838 5573038 b99aad5e4898a9034e953632f940512b ""
   "/usr/local/texlive/2026/texmf-var/web2c/pdftex/pdflatex.fmt" 1774209607 3636776 dc5fa9b6b1453b9d196cd42edf876004 ""
   "/usr/local/texlive/2026/texmf.cnf" 1774209515 577 648cd9f92f9c0eac486f4c71c85cfbbe ""
-  "build/slides.aux" 1778617895.21068 2883 b199f66519bdeb48ded663e64304019e "pdflatex"
-  "build/slides.nav" 1778617895.21153 1946 cc1d57bc897673374b837eab8153475a "pdflatex"
-  "build/slides.out" 1778617894.61314 0 d41d8cd98f00b204e9800998ecf8427e "pdflatex"
+  "build/slides.aux" 1778682382.3867 2883 b199f66519bdeb48ded663e64304019e "pdflatex"
+  "build/slides.nav" 1778682382.38754 1946 cc1d57bc897673374b837eab8153475a "pdflatex"
+  "build/slides.out" 1778682381.77607 0 d41d8cd98f00b204e9800998ecf8427e "pdflatex"
   "slides.tex" 1778617758.25182 24468 c6eef6ff3987bab79d1c4cc49ab8efab ""
   (generated)
   "build/slides.aux"

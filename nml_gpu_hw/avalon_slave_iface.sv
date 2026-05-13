@@ -57,13 +57,13 @@ module avalon_slave_iface (
     input  logic [31:0] palette_rdata_sw,
     input  logic [31:0] tilemap_rdata_sw,
 
-    // Player state registers → HUD overlay
+    // Player state registers -> HUD overlay
     output logic [31:0] player_pos,
     output logic [31:0] player_stats,
     output logic [31:0] score_reg,
     output logic [31:0] kill_count,
 
-    // HUD auxiliary register (ammo + ability charges) → compositor
+    // HUD auxiliary register (ammo + ability charges) -> compositor
     output logic [31:0] hud_aux
 );
 
@@ -99,11 +99,11 @@ module avalon_slave_iface (
     // Address decode
     // -----------------------------------------------------------------------
     // Regions (byte addresses):
-    //   [13:4] == 0 → scalar registers (0x000-0x00F base)
+    //   [13:4] == 0 -> scalar registers (0x000-0x00F base)
     //   Specifically: 0x00-0x0F is ctrl/status, 0x10-0x1F is player state
-    //   0x0100-0x01FF → sprite table
-    //   0x0400-0x07FF → palette
-    //   0x1000-0x22BF → tile map
+    //   0x0100-0x01FF -> sprite table
+    //   0x0400-0x07FF -> palette
+    //   0x1000-0x22BF -> tile map
 
     logic region_ctrl;       // 0x0000-0x000F
     logic region_player;     // 0x0010-0x001F
@@ -140,8 +140,8 @@ module avalon_slave_iface (
     end
     assign avs_waitrequest = ram_read_active && !ram_read_seen;
 
-    // Sprite table: 32 entries × 8B; SW address [7:2] = word index (0-63 words → 32 entries × 2 words)
-    // Palette:      256 entries × 4B; SW address [9:2] = entry index
+    // Sprite table: 32 entries x 8B; SW address [7:2] = word index (0-63 words -> 32 entries x 2 words)
+    // Palette:      256 entries x 4B; SW address [9:2] = entry index
     // Tile map:     4800B; SW address [12:0] within region
 
     // Memory address and write-enable fan-out.
@@ -161,7 +161,7 @@ module avalon_slave_iface (
         mem_wdata  = avs_writedata;
 
         if (region_sprtab) begin
-            mem_waddr = {7'b0, avs_address[7:2]};  // 6-bit word index (0..63 → 32 sprites × 2 words)
+            mem_waddr = {7'b0, avs_address[7:2]};  // 6-bit word index (0..63 -> 32 sprites x 2 words)
             if (avs_write) sprtab_we = 1'b1;
         end else if (region_palette) begin
             mem_waddr = {5'b0, avs_address[9:2]};  // 8-bit palette entry index
@@ -194,7 +194,7 @@ module avalon_slave_iface (
             swap_req_cnt     <= 3'd0;
         end else begin
             // SWAP request: count down each cycle until 0. A new SWAP write
-            // reloads the counter (held high for 7 clk cycles ≈ 140 ns, well
+            // reloads the counter (held high for 7 clk cycles ~140 ns, well
             // over the 80 ns window needed by a 2-FF synchroniser at 25 MHz).
             if (swap_req_cnt != 3'd0) swap_req_cnt <= swap_req_cnt - 3'd1;
 

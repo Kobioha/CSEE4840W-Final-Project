@@ -10,7 +10,7 @@ LaTeX sources for the two project write-ups, plus the compiled PDFs.
 | `internal_deep_dive.pdf`  | Compiled PDF.                                                |
 | `slides.tex`              | Beamer source for the final-presentation deck (17 slides).   |
 | `slides.pdf`              | Compiled slide deck (16:9 widescreen).                       |
-| `build/`                  | Intermediate LaTeX artefacts (`.aux`, `.log`, `.toc`, …).    |
+| `build/`                  | Intermediate LaTeX artefacts (`.aux`, `.log`, `.toc`, etc.). |
 
 The Markdown originals live in `../docs/` (`academic_report.md`,
 `internal_deep_dive.md`). The `.tex` sources mirror them but use TikZ for

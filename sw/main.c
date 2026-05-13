@@ -154,9 +154,9 @@ static void init_palette_runtime(void) {
     nml_write_palette(0x18, 0x00, 0xC0, 0x40); /* ammo drop placeholder: green */
     nml_write_palette(0x19, 0xC0, 0x20, 0x20); /* enemy bullet placeholder: red*/
     /* Battlefield ground palette: brown dirt (3 shades) + green grass (3
-       shades) + deep mud. Inspired by retro pixel-art tilesets — saturated
-       earth tones read clearly behind the player/enemy sprites. Keep in
-       sync with the same palette block in hw/gen_rom.py make_palette(). */
+       shades) + deep mud. Saturated earth tones so the player and enemy
+       sprites still read clearly on top. Keep in sync with the same
+       palette block in hw/gen_rom.py make_palette(). */
     nml_write_palette(0x20, 0x6B, 0x44, 0x23); /* PAL_DIRT_MID:   mid brown    */
     nml_write_palette(0x21, 0x9B, 0x71, 0x42); /* PAL_DIRT_LIGHT: sandy tan    */
     nml_write_palette(0x22, 0x3A, 0x25, 0x15); /* PAL_DIRT_DARK:  dark earth   */

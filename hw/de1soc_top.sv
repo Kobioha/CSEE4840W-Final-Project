@@ -1,28 +1,12 @@
-// de1soc_top.sv -- DE1-SoC top level for the No Man's Land smoke-test bitstream.
+// de1soc_top.sv -- Phase 1 top for the smoke-test bitstream. No HPS, no Qsys.
+// nml_gpu boots with its memories pre-loaded from the .hex files via
+// $readmemh, so the bitstream alone draws a VGA frame. Replaced by
+// soc_system_top in Phase 2 (see SETUP.md). VGA pins are in nml_gpu.qsf.
 //
-// PURPOSE
-//   FPGA-fabric-only top level. No HPS, no Qsys, no SD card. The bitstream
-//   alone produces a complete VGA frame using the data pre-loaded into
-//   sprite_rom.hex / tile_rom.hex / palette.hex / sprite_table.hex via
-//   $readmemh inside nml_gpu. This is the fastest way to confirm the entire
-//   compositor pipeline works on real silicon.
-//
-// WHEN TO USE
-//   - Today: this top, to confirm 25 MHz pixel clock + VGA + nml_gpu render.
-//   - Later (full game): replace this top with a Qsys-integrated wrapper that
-//     exposes nml_gpu's Avalon slave on the HPS-to-FPGA Lightweight bridge.
-//     See SETUP.md "Phase 2: HPS integration" for that workflow.
-//
-// PINS / BOARD CONTROLS
-//   CLOCK_50      50 MHz oscillator
-//   KEY[0]        Active-low reset (push to reset everything)
-//   SW[9:0]       Reserved for future use (currently mirrored to LEDR)
-//   LEDR[9:0]    Status:
-//                  LEDR[0] = always 1  (FPGA powered)
-//                  LEDR[1] = mirrors VGA visible region (lit during active video)
-//                  LEDR[9:2] = SW[9:2] passthrough
-//
-// VGA pin assignments (DE1-SoC ADV7123 DAC) live in nml_gpu.qsf.
+// KEY[0]    active-low reset
+// LEDR[0]   tied 1 (FPGA powered)
+// LEDR[1]   high during VGA visible region
+// LEDR[9:2] SW[9:2] passthrough
 
 `timescale 1ns / 1ps
 

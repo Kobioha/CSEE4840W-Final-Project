@@ -1,6 +1,6 @@
 # No Man's Land: A Custom SystemVerilog GPU and Game on the DE1-SoC
 
-**CSEE 4840 — Embedded System Design, Spring 2026**
+**CSEE 4840 -- Embedded System Design, Spring 2026**
 
 Rohit Biswas (rb3908), Kambinachi Obioha (kno2117), Nicola Paparella (np2953)
 
@@ -13,7 +13,7 @@ Instructor: Prof. Stephen Edwards
 No Man's Land is a top-down WWI horde-survival game implemented on the Terasic
 DE1-SoC. The project partitions the system between a custom SystemVerilog GPU
 peripheral (`nml_gpu`) running in the Cyclone V FPGA fabric and a C game on
-the ARM Cortex-A9 hard processor. The GPU drives a 640×480 @ 60 Hz VGA output
+the ARM Cortex-A9 hard processor. The GPU drives a 640x480 @ 60 Hz VGA output
 with tile-mapped background, 32 hardware sprites with per-scanline priority
 sorting, a 256-entry palette, and an on-chip HUD overlay. The HPS writes the
 sprite table, palette, tile map, and player-state registers through a 16 KB
@@ -56,17 +56,17 @@ development and demos when the controller is unavailable.
 
 The deliverables and supporting documents are:
 
-* `DESIGN.md` — the original design document with system block diagram,
+* `DESIGN.md` -- the original design document with system block diagram,
   register map, and game design.
-* `SETUP.md` — bring-up instructions: host sanity check, JTAG smoke test,
+* `SETUP.md` -- bring-up instructions: host sanity check, JTAG smoke test,
   and HPS integration on the SD-card image.
 * This report and the companion internal deep-dive
   (`docs/internal_deep_dive.md`).
 
-The rest of the report walks through the system architecture (§2),
-hardware design (§3), software design (§4), the hardware–software
-interface (§5), build and toolchain (§6), verification (§7), results (§8),
-challenges and what we did about them (§9), and the open work (§10).
+The rest of the report walks through the system architecture (Sec. 2),
+hardware design (Sec. 3), software design (Sec. 4), the hardware-software
+interface (Sec. 5), build and toolchain (Sec. 6), verification (Sec. 7), results (Sec. 8),
+challenges and what we did about them (Sec. 9), and the open work (Sec. 10).
 
 ## 2. System Architecture
 
@@ -99,9 +99,9 @@ VSYNC and continues to drive the monitor without ever stalling. A 50 MHz
 Avalon clock and a 25 MHz pixel clock are the only two clock domains in
 the design; both derive from the board's 50 MHz oscillator.
 
-Frame budget at 60 Hz is 16.67 ms. Per VGA frame at 640×480 there are
-800 × 525 = 420,000 pixel cycles at 25 MHz (16.8 ms wall-clock), of which
-640 × 480 = 307,200 are visible. The 96-pixel horizontal blanking and
+Frame budget at 60 Hz is 16.67 ms. Per VGA frame at 640x480 there are
+800 x 525 = 420,000 pixel cycles at 25 MHz (16.8 ms wall-clock), of which
+640 x 480 = 307,200 are visible. The 96-pixel horizontal blanking and
 multi-line vertical blanking give the sprite engine the time it needs to
 prepare each scanline.
 
@@ -129,7 +129,7 @@ The remainder of this section walks through each block.
 
 ### 3.1 Pixel clock generation (`pll_25mhz.v`)
 
-The VGA standard for 640×480 @ 60 Hz specifies a 25.175 MHz pixel clock.
+The VGA standard for 640x480 @ 60 Hz specifies a 25.175 MHz pixel clock.
 The Cyclone V on-chip PLL cannot produce that exact frequency from the
 board's 50 MHz reference, so we use 25 MHz, which monitors in the lab
 tolerate without issue. For the Phase 1 smoke test, the divider is a
@@ -152,7 +152,7 @@ register stage.
 ### 3.2 VGA timing (`vga_timing.sv`)
 
 `vga_timing` counts a horizontal axis from 0 to 799 and a vertical axis
-from 0 to 524, producing standard `640×480 @ 60 Hz` parameters
+from 0 to 524, producing standard `640x480 @ 60 Hz` parameters
 (`hw/vga_timing.sv:11-21`):
 
 | Axis | Active | Front porch | Sync | Back porch | Total |
@@ -161,14 +161,14 @@ from 0 to 524, producing standard `640×480 @ 60 Hz` parameters
 | V    | 480    | 10          | 2    | 33         | 525   |
 
 `hsync` and `vsync` are active low, matching the VGA spec for this mode.
-`hblank` is high when `h_count ≥ 640`; `vblank` is high when
-`v_count ≥ 480`; `visible = !hblank && !vblank`.
+`hblank` is high when `h_count >= 640`; `vblank` is high when
+`v_count >= 480`; `visible = !hblank && !vblank`.
 
 ### 3.3 Sprite engine
 
 #### 3.3.1 `sprite_eval.sv`
 
-`sprite_eval` is a small FSM (`IDLE → FETCH → EVAL → DONE → IDLE`) that
+`sprite_eval` is a small FSM (`IDLE -> FETCH -> EVAL -> DONE -> IDLE`) that
 walks the 32-entry sprite table once per scanline and selects the top
 eight sprites by priority that intersect the *next* scanline (`y + 1`).
 The state machine starts when the top-level asserts `eval_strobe` at
@@ -181,7 +181,7 @@ intersects = spr_active &&
              (next_scanline <  (spr_y + 16));
 ```
 
-(`hw/sprite_eval.sv:39-41`). All sprites are 16×16. The signed Y compare
+(`hw/sprite_eval.sv:39-41`). All sprites are 16x16. The signed Y compare
 permits sprites to sit partly above the screen.
 
 The insertion sort is fully unrolled (`hw/sprite_eval.sv:77-94`): each
@@ -195,19 +195,19 @@ plus one cycle for `DONE`, well under the ~160-cycle HBLANK budget at
 #### 3.3.2 `sprite_fetch.sv`
 
 `sprite_fetch` is the data-mover. Its FSM
-(`IDLE → CLEAR_BUF → PROCESS_SPRITE → READ_PIXEL → WAIT_PIXEL →
+(`IDLE -> CLEAR_BUF -> PROCESS_SPRITE -> READ_PIXEL -> WAIT_PIXEL ->
 WRITE_PIXEL`) clears the inactive line buffer to zero (the transparent
 palette index), then walks the eight sorted sprites from lowest to
 highest priority, reading 16 palette-index bytes from the sprite ROM per
 sprite and writing each non-zero, on-screen pixel into the line buffer
-(`hw/sprite_fetch.sv:67-131`). The `READ_PIXEL → WAIT_PIXEL → WRITE_PIXEL`
+(`hw/sprite_fetch.sv:67-131`). The `READ_PIXEL -> WAIT_PIXEL -> WRITE_PIXEL`
 3-state inner loop matches the 1-cycle read latency of the sprite ROM
 (`hw/nml_gpu.sv:194`).
 
 A sprite is addressed by `sprrom_raddr = (spr_id << 8) + (pixel_v << 4) +
 actual_u`, where `actual_u = spr_hflip ? (15 - pixel_u) : pixel_u`
 (`hw/sprite_fetch.sv:107-109`). Vertical flip is in the register layout
-but not wired in this revision — only `hflip` is honoured.
+but not wired in this revision -- only `hflip` is honoured.
 
 Walking from lowest to highest priority is a deliberate choice: each
 sprite's pixels overwrite whatever was written by a lower-priority
@@ -217,7 +217,7 @@ tile layer where no sprite wrote.
 
 #### 3.3.3 Double line buffer
 
-Two 640×8 line buffers (`linebuf_A`, `linebuf_B`,
+Two 640x8 line buffers (`linebuf_A`, `linebuf_B`,
 `hw/nml_gpu.sv:198-221`) form a ping-pong pair. While `sprite_fetch`
 fills buffer A during the HBLANK after scanline N, the compositor reads
 buffer B for scanline N+1; on the next HBLANK, the selector toggles. The
@@ -238,26 +238,26 @@ pixel. The stages, with the latches between them, are
    character index, and select the BCD digit nibble from
    `player_stats`, `hud_aux`, and `score_reg`. Compute the background
    tile map address from `(x[9:3], y[9:3])`.
-2. **S1→S2 latch (`hw/compositor.sv:256-268`):** register the HUD
+2. **S1->S2 latch (`hw/compositor.sv:256-268`):** register the HUD
    tile ID, HUD tile X/Y, HP-bar fill flag, sprite pixel from the line
    buffer, and the background tile map data. This stage exists so that
    the tile ROM read in S2 has its address valid one cycle early.
-3. **S2 (combinational):** mux the tile ROM read address — either the
+3. **S2 (combinational):** mux the tile ROM read address -- either the
    background path (`tile_id, y[2:0], x[2:0]`) or the HUD glyph path
    (`hud_tile_id, hud_tile_y, hud_tile_x`).
-4. **S2→S3 latch (`hw/compositor.sv:280-286`):** register the HP-bar
+4. **S2->S3 latch (`hw/compositor.sv:280-286`):** register the HP-bar
    and HUD-text flags so they line up with the tile ROM read data
    coming back.
-5. **S3 (combinational):** select the palette index — sprite pixel if
+5. **S3 (combinational):** select the palette index -- sprite pixel if
    non-zero, else the tile ROM byte (`hw/compositor.sv:289-292`).
-6. **S3→S4 (registered output):** drive `rgb_out`. The HUD layer wins
-   in the top 16 pixels; the HP bar fills 0–191 in green or dark red
+6. **S3->S4 (registered output):** drive `rgb_out`. The HUD layer wins
+   in the top 16 pixels; the HP bar fills 0-191 in green or dark red
    depending on the per-pixel fill flag; HUD glyph pixels use white on
    dark grey; everywhere else, the palette RAM output drives the line.
 
 The 4-stage pipeline is necessary because the palette read is a
 1-cycle-latency M10K port and the tile ROM read is also 1-cycle. Total
-latency from `x, y` to `rgb_out` is three to four cycles (120–160 ns
+latency from `x, y` to `rgb_out` is three to four cycles (120-160 ns
 at 25 MHz), well within `VGA_BLANK_N` slop.
 
 ### 3.5 Memories
@@ -265,16 +265,16 @@ at 25 MHz), well within `VGA_BLANK_N` slop.
 All six FPGA-side memories are inferred. The relevant ports and depths
 are summarised below.
 
-| Memory          | Storage         | Words × Width    | Total bits | Used for                          |
+| Memory          | Storage         | Words x Width    | Total bits | Used for                          |
 |-----------------|------------------|------------------|------------|-----------------------------------|
-| Sprite table A  | `[63:0] [0:31]`  | 32 × 64          | 2,048      | Active sprite list                |
-| Sprite table B  | `[63:0] [0:31]`  | 32 × 64          | 2,048      | Shadow written by HPS             |
-| Palette RAM     | `[23:0] [0:255]` | 256 × 24         | 6,144      | RGB888 colour table               |
-| Tile map RAM    | `[3:0][7:0] [0:1199]` | 1200 × 32   | 38,400     | 80 × 60 tile IDs, packed bytes    |
-| Sprite ROM      | `[7:0] [0:16383]`| 16,384 × 8       | 131,072    | 64 sprites × 256 bytes each       |
-| Tile ROM        | `[7:0] [0:4095]` | 4,096 × 8        | 32,768     | 64 tiles × 64 bytes each          |
-| Line buffer A   | `[7:0] [0:639]`  | 640 × 8          | 5,120      | Sprite scanline (ping)            |
-| Line buffer B   | `[7:0] [0:639]`  | 640 × 8          | 5,120      | Sprite scanline (pong)            |
+| Sprite table A  | `[63:0] [0:31]`  | 32 x 64          | 2,048      | Active sprite list                |
+| Sprite table B  | `[63:0] [0:31]`  | 32 x 64          | 2,048      | Shadow written by HPS             |
+| Palette RAM     | `[23:0] [0:255]` | 256 x 24         | 6,144      | RGB888 colour table               |
+| Tile map RAM    | `[3:0][7:0] [0:1199]` | 1200 x 32   | 38,400     | 80 x 60 tile IDs, packed bytes    |
+| Sprite ROM      | `[7:0] [0:16383]`| 16,384 x 8       | 131,072    | 64 sprites x 256 bytes each       |
+| Tile ROM        | `[7:0] [0:4095]` | 4,096 x 8        | 32,768     | 64 tiles x 64 bytes each          |
+| Line buffer A   | `[7:0] [0:639]`  | 640 x 8          | 5,120      | Sprite scanline (ping)            |
+| Line buffer B   | `[7:0] [0:639]`  | 640 x 8          | 5,120      | Sprite scanline (pong)            |
 
 The sprite ROM, tile ROM, palette, and shadow sprite table are
 initialised from `.hex` files via `$readmemh` at synthesis
@@ -297,7 +297,7 @@ template; each `tilemap_ram[idx][i]` lane updates independently.
 
 The peripheral is a 32-bit lightweight Avalon-MM slave with a 14-bit
 byte-address window (16 KB). The full register map
-(`hw/avalon_slave_iface.sv:1-22`) is reproduced in §5; here, only the
+(`hw/avalon_slave_iface.sv:1-22`) is reproduced in Sec. 5; here, only the
 mechanics matter.
 
 Reads of the scalar registers (CTRL, STATUS, BG_SCROLL, IRQ_MASK,
@@ -368,7 +368,7 @@ to remember which weapon spawned them), and a fire cooldown
 * In `STATE_PLAYING`, it updates the player, runs the wave spawner,
   moves enemies, advances bullets, ages hazards, runs auto-attack
   timers, and resolves collisions. On wave clear it transitions to
-  `STATE_LEVELUP`. On player HP ≤ 0 it transitions to
+  `STATE_LEVELUP`. On player HP <= 0 it transitions to
   `STATE_GAMEOVER` and deactivates every entity including the player
   so the death screen has a clean tilemap to draw into.
 * In `STATE_LEVELUP`, the player picks one of three offered weapons
@@ -386,7 +386,7 @@ the player's bullet stream would mop them up trivially. Armed enemies
 also fire bullets back on a per-enemy cooldown jittered at spawn
 (`sw/game.c:21-23, 239-246`).
 
-Collision resolution is AABB at 16 × 16 (`sw/game.c:298-312`). All
+Collision resolution is AABB at 16 x 16 (`sw/game.c:298-312`). All
 kills go through `apply_damage()` (`sw/game.c:318-333`) so that score,
 kill counter, and ammo-drop probability are recorded uniformly across
 weapon paths. The drop probability is 30 % per kill
@@ -429,7 +429,7 @@ Three auto-attack kinds exist (`sw/game.h:60-65`):
   effect.
 * **Mustard gas** is player-triggered with the R shoulder. It
   spawns a single `ENT_HAZARD` at the player's position with a TTL of
-  90 frames. The cloud grows from 16 × 16 px to 48 × 32 px over the
+  90 frames. The cloud grows from 16 x 16 px to 48 x 32 px over the
   first 30 frames, holds, and shrinks over the last 15
   (`sw/autoatk.c:160-178`).
 
@@ -449,13 +449,13 @@ The input API is a single function: `uint16_t input_read(int frame)`
 `input_fake.c` (the deterministic stub) is linked.
 
 The real reader opens `/dev/input/event0` (the only evdev node that
-shows up for the gamepad on the DE1-SoC kernel — `joydev` is not built
+shows up for the gamepad on the DE1-SoC kernel -- `joydev` is not built
 in, so there is no `/dev/input/js0`). It drains pending events on every
 call, updating an internal button bitmask and axis values
 (`sw/input_real.c:127-147`). The D-pad is reported as `ABS_X`/`ABS_Y`;
 axes are converted to four directional bits with a deadzone equal to a
 quarter of the reported range, queried via `EVIOCGABS` so the same code
-works whether the pad reports −1..1, 0..255, or signed 16-bit values
+works whether the pad reports -1..1, 0..255, or signed 16-bit values
 (`sw/input_real.c:76-84, 149-153`).
 
 The face buttons map as follows (`sw/input_real.c:11-22`):
@@ -482,7 +482,7 @@ every 200 frames; R every 240; START every 600.
 writes the entity pool into the FPGA sprite table:
 
 * Slot 0 is always the player.
-* Slots 1–31 hold active non-player entities in pool order.
+* Slots 1-31 hold active non-player entities in pool order.
 * Gas hazards expand into up to four sprite slots (centre, left,
   right, top) as the cloud grows (`sw/render.c:98-111`).
 * Bullets get priority 2 (low), enemies and hazards priority 1, the
@@ -498,7 +498,7 @@ options at fixed positions, and a cursor above the active option
 (`sw/render.c:230-283`). In `STATE_GAMEOVER`, the entire battlefield
 tile map is overwritten with centred text using
 `draw_text_centered()` (`sw/render.c:302-340`). On the
-`STATE_GAMEOVER → STATE_PLAYING` restart, `render_init_tilemap()` is
+`STATE_GAMEOVER -> STATE_PLAYING` restart, `render_init_tilemap()` is
 called to restore the battlefield ground tiles (`sw/render.c:347-354`).
 
 The terminal renderer (`sw/render_terminal.c`) mirrors the slot
@@ -516,7 +516,7 @@ laptop without hardware.
 4. Commit (`nml_commit_frame()` sets `CTRL.SWAP`, then polls
    `STATUS.SWAP_PENDING` until it clears or a 200 000-iteration
    timeout trips).
-5. Sleep the remainder of the 16 666 µs frame budget.
+5. Sleep the remainder of the 16 666 us frame budget.
 
 On the host (terminal build), `nml_commit_frame()` is `#ifdef`-ed out
 and `nanosleep` is the sole pacing source. On the board, the SWAP
@@ -535,7 +535,7 @@ and the white sprite border. This step shadows the `$readmemh`
 initialisation; once it runs, the software is the authoritative
 source of palette data.
 
-## 5. Hardware–Software Interface
+## 5. Hardware-Software Interface
 
 The peripheral occupies 16 KB starting at 0xFF200000 in HPS physical
 address space (the lightweight bridge base on the DE1-SoC). The
@@ -556,9 +556,9 @@ is reproduced below.
 | 0x0018       | `SCORE`        | 32    | R/W    | `[23:0]=score` BCD (6 digits)                                            |
 | 0x001C       | `KILL_COUNT`   | 32    | R/W    | 32-bit kill counter (HUD-only, optional)                                 |
 | 0x0020       | `HUD_AUX`      | 32    | R/W    | `[7:0]=ammo` BCD (2 digits), `[11:8]=art` BCD, `[15:12]=gas` BCD         |
-| 0x0100–0x01FF| Sprite table   | 256 B | R/W    | 32 × 8 B entries; per-entry layout below                                 |
-| 0x0400–0x07FF| Palette        | 1 KB  | R/W    | 256 × 4 B; entry = `0x00, R, G, B` packed `[23:0]=RGB888`                |
-| 0x1000–0x22BF| Tile map       | 4.7 KB| R/W    | 80 × 60 bytes; byte = tile ID                                            |
+| 0x0100-0x01FF| Sprite table   | 256 B | R/W    | 32 x 8 B entries; per-entry layout below                                 |
+| 0x0400-0x07FF| Palette        | 1 KB  | R/W    | 256 x 4 B; entry = `0x00, R, G, B` packed `[23:0]=RGB888`                |
+| 0x1000-0x22BF| Tile map       | 4.7 KB| R/W    | 80 x 60 bytes; byte = tile ID                                            |
 
 Each sprite-table entry is two 32-bit words:
 
@@ -574,7 +574,7 @@ Each sprite-table entry is two 32-bit words:
 The `flags` byte packs (`sw/nml_gpu.h:58-69`): bit 2 hflip, bit 3 vflip,
 bits 6:4 priority (0 = highest), bit 7 ACTIVE. The `ACTIVE` bit is the
 flag that `sprite_eval` actually checks at bit 47 of the 64-bit packed
-word; the original design used sentinel coordinates (x = y = −256)
+word; the original design used sentinel coordinates (x = y = -256)
 exclusively, but the hardware now also honours the explicit active bit
 (`sw/nml_gpu.h:12-16`, `hw/sprite_eval.sv:32-34`).
 
@@ -647,21 +647,21 @@ The Makefile targets are `qsys`, `quartus`, `rbf`, and `dtb`.
 
 `gen_rom.py` is a 777-line Python script that emits four hex files:
 
-* `sprite_rom.hex` — 16 384 bytes covering 64 × 16 × 16 sprites.
+* `sprite_rom.hex` -- 16 384 bytes covering 64 x 16 x 16 sprites.
   Sprite IDs in use today are 1 (player, green-bordered square),
   2 (armed enemy, red with white cross), 3 (player bullet,
-  4 × 4 yellow centred), 4 (unarmed enemy, solid pink), 5 (mortar
+  4 x 4 yellow centred), 4 (unarmed enemy, solid pink), 5 (mortar
   shell, orange diamond), 7 (gas, green circle), 8 (artillery flash,
   white plus), 9 (ammo crate), 10 (enemy bullet). Sprite 0 is
   reserved as the fully-transparent slot.
-* `tile_rom.hex` — 4 096 bytes covering 64 × 8 × 8 tiles. Slots in
-  use: 0 (blank background), 4–5 (dirt), 6–7 (grass), 8 (dirt/grass
+* `tile_rom.hex` -- 4 096 bytes covering 64 x 8 x 8 tiles. Slots in
+  use: 0 (blank background), 4-5 (dirt), 6-7 (grass), 8 (dirt/grass
   transition), 9 (mud puddle), 10 (dense grass), 11 (artillery beam
-  column), 16–41 (A–Z glyphs), 42 (colon), 43 (space), 48–57 (digits
-  0–9).
-* `palette.hex` — 256 RGB888 entries. The active entries are
+  column), 16-41 (A-Z glyphs), 42 (colon), 43 (space), 48-57 (digits
+  0-9).
+* `palette.hex` -- 256 RGB888 entries. The active entries are
   documented inline in `sw/main.c:139-168` and `hw/gen_rom.py`.
-* `sprite_table.hex` — 32 initial sprite slots that draw the smoke-test
+* `sprite_table.hex` -- 32 initial sprite slots that draw the smoke-test
   scene before the HPS takes over.
 
 ### 6.3 Software build
@@ -677,8 +677,8 @@ the host's gcc.
 ### 6.4 Boot and SD-card image
 
 The Phase 2 image follows the standard DE1-SoC Linux boot flow:
-preloader → U-Boot → kernel (Linux 4.19 from `altera-fpga/linux-socfpga`,
-tag v4.19) → root filesystem on the ext4 partition. The FPGA RBF
+preloader -> U-Boot -> kernel (Linux 4.19 from `altera-fpga/linux-socfpga`,
+tag v4.19) -> root filesystem on the ext4 partition. The FPGA RBF
 and DTB sit on the FAT boot partition. U-Boot loads the bitstream
 into the FPGA fabric before launching the kernel, so the smoke-test
 scene is already on the VGA monitor by the time userspace comes up.
@@ -709,7 +709,7 @@ Three test rungs:
   the terminal logs wave starts and clears. At the time of writing,
   this configuration boots and the game runs, but the VGA output
   has a vertical-stripe rendering bug and the Game-Over screen is
-  broken — see §9 and the deep-dive companion for details.
+  broken -- see Sec. 9 and the deep-dive companion for details.
 
 ## 8. Results
 
@@ -721,7 +721,7 @@ Cyclone V SE 5CSEMA5F31C6):
 | Resource         | Used   | Available | Fraction |
 |------------------|-------:|----------:|---------:|
 | ALMs             | 205    | 32,070    | < 1 %    |
-| Registers        | 365    | —         | —        |
+| Registers        | 365    | -- | -- |
 | Pins             | 54     | 457       | 12 %     |
 | Block memory bits| 86,144 | 4,065,280 | 2 %      |
 | M10K blocks      | 14     | 397       | 4 %      |
@@ -730,7 +730,7 @@ Cyclone V SE 5CSEMA5F31C6):
 
 The design uses less than 1 % of the part. There is room for an order
 of magnitude more sprite slots, deeper tile/sprite ROMs, multiple
-parallax layers, or a hardware audio engine — all of which were
+parallax layers, or a hardware audio engine -- all of which were
 considered and dropped for scope.
 
 Total compile time: 63 seconds (Analysis & Synthesis 13 s, Fitter 30 s,
@@ -739,13 +739,13 @@ Assembler 12 s, Timing Analyzer 8 s).
 ### 8.2 Timing analysis
 
 `hw/quartus/output_files/nml_gpu.sta.summary` reports negative slack on
-the slow-1100mV-85°C corner:
+the slow-1100mV-85 degC corner:
 
 | Corner          | Clock      | Setup slack | TNS         |
 |-----------------|------------|------------:|------------:|
-| Slow 1100mV 85C | clk_div    | −5.111 ns   | −1409.97 ns |
-| Slow 1100mV 85C | CLOCK_50   | −3.506 ns   | −3.506 ns   |
-| Fast 1100mV 85C | clk_div    | −2.654 ns   | −725.39 ns  |
+| Slow 1100mV 85C | clk_div    | -5.111 ns   | -1409.97 ns |
+| Slow 1100mV 85C | CLOCK_50   | -3.506 ns   | -3.506 ns   |
+| Fast 1100mV 85C | clk_div    | -2.654 ns   | -725.39 ns  |
 
 All hold checks pass. The dominant violation is a minimum-pulse-width
 report on the divided clock register. The pixel-clock domain runs at
@@ -754,7 +754,7 @@ register as if it were producing a much higher-frequency clock; the
 combination of `posedge` and `negedge` from the alternating toggle
 makes the analyser see a 20 ns half-period. On real silicon the
 register is promoted to the global clock network and the duty cycle
-is exact, so the divider works as intended — but the analyser cannot
+is exact, so the divider works as intended -- but the analyser cannot
 see that, and reports failure.
 
 The fix is to replace the divide-by-2 register with an `altera_pll`
@@ -776,7 +776,7 @@ durations; an explicit instrument is on the open-issues list.
 ### 9.1 Tile-map byte-enable RMW
 
 The original tile-map storage was `logic [7:0] tilemap_ram [0:4799]`
-— one byte per word. The Linux driver's `nml_write_tile()` issues an
+ -- one byte per word. The Linux driver's `nml_write_tile()` issues an
 ARM `STRB` for each tile update. The HPS-to-FPGA lightweight bridge
 sets `avs_byteenable` to one nibble and the Avalon slave's effective
 behaviour was a read-modify-write: read the 32-bit word, mask in the
@@ -841,18 +841,18 @@ defaults, so the swap is a drop-in.
 In the current Phase 2 build, the VGA monitor shows the game across
 the full screen but with vertical stripes: the rendered pixels are
 correct in some columns and stale in others. The Game-Over screen
-also draws incorrectly — the centred text appears partially or not
+also draws incorrectly -- the centred text appears partially or not
 at all.
 
 The stripe pattern is consistent with a partial mismatch between
 the byte-enable behaviour on writes and the byte-select behaviour
-on reads. The packed-byte tile-map fix in §9.1 addressed the gross
+on reads. The packed-byte tile-map fix in Sec. 9.1 addressed the gross
 clobbering, but a residual issue in the read-side byte select
 (`hw/nml_gpu.sv:169-173`) or in the way the slave decodes
 `avs_address` for the upper half of the tile-map region
 (`hw/avalon_slave_iface.sv:169-178`) is the most likely culprit.
 The decode there packs `{avs_address[13], avs_address[11:0]}` to
-handle the 0x1000–0x22BF range crossing bit 13; if a byte falls
+handle the 0x1000-0x22BF range crossing bit 13; if a byte falls
 into the upper half (rows 25 and above), the lane the slave writes
 may not match the lane the compositor reads, producing the visible
 stripe.
@@ -869,7 +869,7 @@ real load.
 ## 10. Conclusion and Open Work
 
 The Phase 1 smoke-test bitstream works as designed on hardware:
-640 × 480 @ 60 Hz, tile + sprite + palette + HUD pipeline, full
+640 x 480 @ 60 Hz, tile + sprite + palette + HUD pipeline, full
 VGA pin set. The Phase 2 HPS-integrated build boots Linux, exposes
 the peripheral on the lightweight bridge, runs the C game at
 60 Hz, and reads SNES controller input via evdev. Player movement,
@@ -880,10 +880,10 @@ function in the deployed configuration.
 The two open items at the time of writing are:
 
 1. The vertical-stripe rendering artefact on the HPS-integrated
-   build (§9.5). Tracing the byte-lane alignment between the
+   build (Sec. 9.5). Tracing the byte-lane alignment between the
    slave's tile-map write decode and the compositor's read mux is
    the next step.
-2. The Game-Over screen visual (§9.5), likely a downstream of (1).
+2. The Game-Over screen visual (Sec. 9.5), likely a downstream of (1).
 
 After those, the remaining work, in rough priority order:
 
@@ -900,16 +900,16 @@ After those, the remaining work, in rough priority order:
 
 ## References
 
-1. `DESIGN.md` — Project design document, April 2026. System block
+1. `DESIGN.md` -- Project design document, April 2026. System block
    diagram, register map, game design.
-2. `SETUP.md` — Bring-up instructions for Phase 0, Phase 1, and
+2. `SETUP.md` -- Bring-up instructions for Phase 0, Phase 1, and
    Phase 2.
 3. Terasic Inc., *DE1-SoC User Manual*, Revision 1.2.4.
 4. Intel/Altera, *Cyclone V Device Handbook* (Volume 1: Device
    Interfaces and Integration).
 5. Intel/Altera, *Avalon Interface Specifications*, MNL-AVABUSREF.
 6. Analog Devices, *ADV7123 Triple High-Speed Video DAC Datasheet*.
-7. VESA, *VGA 640×480 @ 60 Hz timing specification*.
+7. VESA, *VGA 640x480 @ 60 Hz timing specification*.
 8. Linux kernel evdev documentation: `Documentation/input/event-codes.rst`.
-9. `lab3-reference/CSEE4840W-Lab3` — VGA ball lab providing the
+9. `lab3-reference/CSEE4840W-Lab3` -- VGA ball lab providing the
    timing-generator skeleton.

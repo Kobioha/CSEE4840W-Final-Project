@@ -1,0 +1,24 @@
+\contentsline {section}{\numberline {1}Repo layout}{3}{section.1}%
+\contentsline {section}{\numberline {2}Phase 1 vs Phase 2}{3}{section.2}%
+\contentsline {section}{\numberline {3}\texttt {hw/nml\_gpu.sv} --- top of the GPU hierarchy}{4}{section.3}%
+\contentsline {section}{\numberline {4}\texttt {hw/avalon\_slave\_iface.sv} --- register decode}{5}{section.4}%
+\contentsline {section}{\numberline {5}\texttt {hw/vga\_timing.sv} --- 800$\times $525 frame walker}{6}{section.5}%
+\contentsline {section}{\numberline {6}\texttt {hw/sprite\_eval.sv} --- top-8 priority sort}{6}{section.6}%
+\contentsline {section}{\numberline {7}\texttt {hw/sprite\_fetch.sv} --- ROM read + line buffer write}{7}{section.7}%
+\contentsline {section}{\numberline {8}\texttt {hw/compositor.sv} --- pipeline + HUD}{7}{section.8}%
+\contentsline {section}{\numberline {9}\texttt {hw/pll\_25mhz.v} --- divide-by-2}{8}{section.9}%
+\contentsline {section}{\numberline {10}\texttt {hw/gen\_rom.py} --- ROM emitter}{8}{section.10}%
+\contentsline {section}{\numberline {11}\texttt {sw/nml\_gpu.c} / \texttt {sw/nml\_gpu.h} --- userspace driver}{9}{section.11}%
+\contentsline {section}{\numberline {12}\texttt {sw/main.c} --- main loop}{10}{section.12}%
+\contentsline {section}{\numberline {13}\texttt {sw/game.c} / \texttt {sw/game.h} --- state machine + entity pool}{10}{section.13}%
+\contentsline {section}{\numberline {14}\texttt {sw/wave.c} --- wave table}{11}{section.14}%
+\contentsline {section}{\numberline {15}\texttt {sw/autoatk.c} --- auto-attacks}{11}{section.15}%
+\contentsline {section}{\numberline {16}\texttt {sw/render.c} --- entity to sprite-table writer}{11}{section.16}%
+\contentsline {section}{\numberline {17}\texttt {sw/render\_terminal.c} --- host renderer}{12}{section.17}%
+\contentsline {section}{\numberline {18}\texttt {sw/input\_real.c} --- evdev reader}{12}{section.18}%
+\contentsline {section}{\numberline {19}\texttt {sw/input\_fake.c} --- stub}{12}{section.19}%
+\contentsline {section}{\numberline {20}\texttt {sw/Makefile}}{13}{section.20}%
+\contentsline {section}{\numberline {21}Boot and run on the board}{13}{section.21}%
+\contentsline {section}{\numberline {22}Known bugs and fragile spots (as of 2026-05-12)}{13}{section.22}%
+\contentsline {section}{\numberline {23}What would break if changed}{14}{section.23}%
+\contentsline {section}{End notes}{14}{section*.3}%

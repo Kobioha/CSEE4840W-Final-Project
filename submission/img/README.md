@@ -1,6 +1,6 @@
 # Submission Images
 
-The slide deck (`reports/slides.tex` → `submission/slides.pdf`) references three
+The slide deck (`reports/slides.tex` -> `submission/slides.pdf`) references three
 photographs of the system from this directory. Each is loaded with
 `\IfFileExists`, so the deck builds with visible "PHOTO GOES HERE" placeholders
 when the JPGs are missing. Drop the files in with these exact filenames and

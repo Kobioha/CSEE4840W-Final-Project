@@ -231,7 +231,7 @@ inter-block glue lives here, not in the slave.
     --- any value in $[640, 700]$ would work.
   \item Lines 250--270: the \texttt{eval\_done\_r} sustain latch. The reason
     this exists is in the comment block at lines 259--263 and in the
-    academic report §9.2. \textbf{Do not remove unless you replace it with
+    academic report Section 9.2. \textbf{Do not remove unless you replace it with
     a more reliable handshake.}
   \item Lines 298--300: \texttt{vga\_r/g/b} mux on \texttt{ctrl\_enable}.
     When disabled, all three are 0 and the monitor goes black. Used at
@@ -748,7 +748,7 @@ The full procedure is in \texttt{SETUP.md}. Cliffs Notes:
 \begin{itemize}[leftmargin=*]
   \item \textbf{Stripe rendering bug.} The Phase 2 build shows vertical
     stripes across the entire screen. Investigation pointed at the
-    tile-map byte-enable path (see academic report §9.5). The packed-byte
+    tile-map byte-enable path (see academic report Section 9.5). The packed-byte
     storage in \texttt{hw/nml\_gpu.sv:150--173} and the byte-address
     packing in \texttt{hw/avalon\_slave\_iface.sv:169--178} are the two
     surfaces in scope.\\
@@ -827,9 +827,9 @@ The full procedure is in \texttt{SETUP.md}. Cliffs Notes:
 \addcontentsline{toc}{section}{End notes}
 
 If a professor asks you about a specific module, open the file in this
-doc, walk them through it line by line. The cycle counts in §6 (eval) and
-the worst-case math in §7 (fetch) are the two numbers most likely to come
-up. The ``why the slave widens SWAP'' story in §4 / §9.3 of the academic
+doc, walk them through it line by line. The cycle counts in Section 6 (eval) and
+the worst-case math in Section 7 (fetch) are the two numbers most likely to come
+up. The ``why the slave widens SWAP'' story in Section 4 / 9.3 of the academic
 report is a good example of CDC discipline if asked to defend the design.
 
 For the stripe bug specifically: \textbf{own it.} It is a real bug, the
