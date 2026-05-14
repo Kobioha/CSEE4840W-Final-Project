@@ -1,7 +1,7 @@
 /*
  * nml_gpu.c -- userspace driver for the No Man's Land FPGA peripheral.
  * Maps the HPS-to-FPGA Lightweight bridge via /dev/mem and provides typed
- * writers for the register map described in DESIGN.md sections 5 and 6.3.
+ * writers for the register map (see nml_gpu.h).
  */
 
 #define _GNU_SOURCE

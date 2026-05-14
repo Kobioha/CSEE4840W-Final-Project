@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.29 (TeX Live 2026) (preloaded format=pdflatex 2026.3.22)  13 MAY 2026 10:26
+This is pdfTeX, Version 3.141592653-2.6-1.40.29 (TeX Live 2026) (preloaded format=pdflatex 2026.3.22)  13 MAY 2026 20:52
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -899,49 +899,50 @@ LaTeX Font Info:    External font `lmex10' loaded for size
 \openout5 = `academic_report.toc'.
 
  [3]
-LaTeX Font Info:    Trying to load font information for TS1+lmr on input line 1
-83.
-
-(/usr/local/texlive/2026/texmf-dist/tex/latex/lm/ts1lmr.fd
-File: ts1lmr.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
-) [4{/usr/local/texlive/2026/texmf-dist/fonts/enc/dvips/lm/lm-ts1.enc}{/usr/loc
-al/texlive/2026/texmf-dist/fonts/enc/dvips/lm/lm-rm.enc}{/usr/local/texlive/202
-6/texmf-dist/fonts/enc/dvips/lm/lm-mathit.enc}]
-LaTeX Font Info:    Font shape `T1/lmtt/bx/n' in size <12> not available
-(Font)              Font shape `T1/lmtt/b/n' tried instead on input line 285.
-Package hyperref Info: bookmark level for unknown lstlisting defaults to 0 on i
-nput line 297.
-LaTeX Font Info:    Font shape `T1/lmtt/bx/n' in size <9> not available
-(Font)              Font shape `T1/lmtt/b/n' tried instead on input line 298.
- [5]
-LaTeX Font Info:    Font shape `T1/lmtt/bx/n' in size <10.95> not available
-(Font)              Font shape `T1/lmtt/b/n' tried instead on input line 348.
- [6] [7] [8] [9] [10] [11] [12] [13]
 
 LaTeX Warning: `h' float specifier changed to `ht'.
 
-[14] [15] [16] (../hw/de1soc_top.sv [17]) [18] (../hw/nml_gpu.sv [19] [20]
-[21] [22] [23]) (../hw/avalon_slave_iface.sv [24] [25] [26]
-LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <9> on input line 197.
- [27]) [28]
-(../hw/vga_timing.sv [29]) (../hw/sprite_eval.sv [30] [31])
+LaTeX Font Info:    Font shape `T1/lmtt/bx/n' in size <12> not available
+(Font)              Font shape `T1/lmtt/b/n' tried instead on input line 276.
+[4{/usr/local/texlive/2026/texmf-dist/fonts/enc/dvips/lm/lm-rm.enc}{/usr/local/
+texlive/2026/texmf-dist/fonts/enc/dvips/lm/lm-mathit.enc}]
+Package hyperref Info: bookmark level for unknown lstlisting defaults to 0 on i
+nput line 288.
+LaTeX Font Info:    Font shape `T1/lmtt/bx/n' in size <9> not available
+(Font)              Font shape `T1/lmtt/b/n' tried instead on input line 289.
+ [5]
+LaTeX Font Info:    Font shape `T1/lmtt/bx/n' in size <10.95> not available
+(Font)              Font shape `T1/lmtt/b/n' tried instead on input line 339.
+ [6] [7] [8]
+LaTeX Font Info:    Trying to load font information for TS1+lmr on input line 5
+82.
+
+(/usr/local/texlive/2026/texmf-dist/tex/latex/lm/ts1lmr.fd
+File: ts1lmr.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
+) [9{/usr/local/texlive/2026/texmf-dist/fonts/enc/dvips/lm/lm-ts1.enc}] [10] [1
+1] [12] [13]
+
+LaTeX Warning: `h' float specifier changed to `ht'.
+
+[14] [15] [16] (../hw/de1soc_top.sv [17]) (../hw/nml_gpu.sv [18] [19] [20]
+[21] [22] [23]) (../hw/avalon_slave_iface.sv [24] [25] [26] [27])
+(../hw/vga_timing.sv [28]) [29] (../hw/sprite_eval.sv [30] [31])
 (../hw/sprite_fetch.sv [32] [33]) (../hw/compositor.sv [34] [35] [36] [37]
-[38] [39]) (../hw/pll_25mhz.v) (../hw/gen_rom.py [40] [41] [42] [43] [44]
+[38]) (../hw/pll_25mhz.v [39]) (../hw/gen_rom.py [40] [41] [42] [43] [44]
 [45] [46] [47] [48] [49] [50] [51] [52])
 (/usr/local/texlive/2026/texmf-dist/tex/latex/listings/lstlang1.sty
 File: lstlang1.sty 2025/11/14 1.11b listings language file
 )
 (/usr/local/texlive/2026/texmf-dist/tex/latex/listings/lstmisc.sty
 File: lstmisc.sty 2025/11/14 1.11b (Carsten Heinz)
-) [53]
-(../sw/main.c [54] [55] [56] [57]) (../sw/game.h [58] [59] [60]) (../sw/game.c
-[61] [62] [63] [64] [65] [66] [67] [68]) (../sw/wave.h [69]) (../sw/wave.c
-[70] [71]) (../sw/autoatk.h [72]) (../sw/autoatk.c [73] [74] [75] [76] [77])
-(../sw/input.h) (../sw/input_real.c [78] [79] [80]) (../sw/input_fake.c
-[81]) (../sw/render.h) (../sw/render.c [82] [83] [84] [85] [86] [87] [88])
-[89] (../sw/render_terminal.c [90] [91]) [92] (../sw/nml_gpu.h [93])
-(../sw/nml_gpu.c [94] [95] [96] [97]) (../sw/Makefile [98]) [99]
+)
+(../sw/main.c [53] [54] [55] [56] [57]) (../sw/game.h [58] [59] [60])
+(../sw/game.c [61] [62] [63] [64] [65] [66] [67] [68]) (../sw/wave.h [69])
+(../sw/wave.c [70] [71]) (../sw/autoatk.h [72]) (../sw/autoatk.c [73] [74]
+[75] [76] [77]) (../sw/input.h) (../sw/input_real.c [78] [79] [80])
+(../sw/input_fake.c [81]) (../sw/render.h) (../sw/render.c [82] [83] [84]
+[85] [86] [87] [88]) (../sw/render_terminal.c [89] [90] [91]) (../sw/nml_gpu.h
+[92] [93]) (../sw/nml_gpu.c [94] [95] [96]) [97] (../sw/Makefile [98]) [99]
 (build/academic_report.aux)
  ***********
 LaTeX2e <2025-11-01>
@@ -951,13 +952,13 @@ Package rerunfilecheck Info: File `academic_report.out' has not changed.
 (rerunfilecheck)             Checksum: 1F48D883A8107731F91C2DE21E510F73;7366.
  ) 
 Here is how much of TeX's memory you used:
- 34558 strings out of 467525
- 614732 string characters out of 5418982
- 2162675 words of memory out of 5000000
- 57855 multiletter control sequences out of 15000+600000
- 711789 words of font info for 184 fonts, out of 8000000 for 9000
+ 34538 strings out of 467525
+ 614476 string characters out of 5418982
+ 2204312 words of memory out of 5000000
+ 57847 multiletter control sequences out of 15000+600000
+ 707928 words of font info for 178 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 84i,10n,94p,1012b,2241s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 84i,10n,94p,1012b,2274s stack positions out of 10000i,1000n,20000p,200000b,200000s
 </usr/local/texlive/2026/texmf-dist/fonts/type1/public/lm/lmbx10.pfb></usr/lo
 cal/texlive/2026/texmf-dist/fonts/type1/public/lm/lmbx12.pfb></usr/local/texliv
 e/2026/texmf-dist/fonts/type1/public/lm/lmbx9.pfb></usr/local/texlive/2026/texm
@@ -968,14 +969,14 @@ blic/lm/lmr12.pfb></usr/local/texlive/2026/texmf-dist/fonts/type1/public/lm/lmr
 local/texlive/2026/texmf-dist/fonts/type1/public/lm/lmri10.pfb></usr/local/texl
 ive/2026/texmf-dist/fonts/type1/public/lm/lmsy10.pfb></usr/local/texlive/2026/t
 exmf-dist/fonts/type1/public/lm/lmsy8.pfb></usr/local/texlive/2026/texmf-dist/f
-onts/type1/public/lm/lmsy9.pfb></usr/local/texlive/2026/texmf-dist/fonts/type1/
-public/lm/lmtk10.pfb></usr/local/texlive/2026/texmf-dist/fonts/type1/public/lm/
-lmtt10.pfb></usr/local/texlive/2026/texmf-dist/fonts/type1/public/lm/lmtt9.pfb>
-</usr/local/texlive/2026/texmf-dist/fonts/type1/public/lm/lmtti10.pfb>
-Output written on build/academic_report.pdf (99 pages, 784329 bytes).
+onts/type1/public/lm/lmtk10.pfb></usr/local/texlive/2026/texmf-dist/fonts/type1
+/public/lm/lmtt10.pfb></usr/local/texlive/2026/texmf-dist/fonts/type1/public/lm
+/lmtt9.pfb></usr/local/texlive/2026/texmf-dist/fonts/type1/public/lm/lmtti10.pf
+b>
+Output written on build/academic_report.pdf (99 pages, 779263 bytes).
 PDF statistics:
- 6569 PDF objects out of 7423 (max. 8388607)
- 6370 compressed objects within 64 object streams
- 4927 named destinations out of 5155 (max. 500000)
- 51037 words of extra memory for PDF output out of 51595 (max. 10000000)
+ 6560 PDF objects out of 7423 (max. 8388607)
+ 6363 compressed objects within 64 object streams
+ 4924 named destinations out of 5155 (max. 500000)
+ 48989 words of extra memory for PDF output out of 51595 (max. 10000000)
 

@@ -1,6 +1,6 @@
 \contentsline {section}{\numberline {1}Introduction}{4}{section.1}%
 \contentsline {section}{\numberline {2}System Architecture}{4}{section.2}%
-\contentsline {section}{\numberline {3}Hardware Design}{5}{section.3}%
+\contentsline {section}{\numberline {3}Hardware Design}{4}{section.3}%
 \contentsline {subsection}{\numberline {3.1}Pixel clock generation (\texttt {pll\_25mhz.v})}{5}{subsection.3.1}%
 \contentsline {subsection}{\numberline {3.2}VGA timing (\texttt {vga\_timing.sv})}{6}{subsection.3.2}%
 \contentsline {subsection}{\numberline {3.3}Sprite engine}{6}{subsection.3.3}%

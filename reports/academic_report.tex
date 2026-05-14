@@ -159,13 +159,13 @@ map, build flow, and verified results.
 % ===========================================================================
 \section{Introduction}
 
-The course's final-project remit is to design and integrate a custom
-SystemVerilog peripheral that drives a VGA display and to write a C
-application that uses the peripheral to do something interesting. We chose a
-WWI-themed horde-survival game on the principle that it stresses both sides:
-the FPGA must composite many sprites per scanline at pixel rate, and the CPU
-must run wave logic, enemy AI, projectile physics, collision checks, an
-auto-attack system, and a HUD-driven UI within a 16.67\,ms frame budget.
+No Man's Land is a WWI horde-survival game running on the Terasic DE1-SoC. The
+FPGA fabric carries a custom SystemVerilog GPU peripheral (\texttt{nml\_gpu})
+that drives a 640$\times$480 @ 60\,Hz VGA display. The on-board ARM Cortex-A9
+runs the C game loop: wave logic, enemy AI, projectile physics, collision,
+auto-attack, and HUD updates, all inside a 16.67\,ms frame. The two halves
+exchange sprite tables, palette entries, and control bits over the Avalon-MM
+lightweight bridge.
 
 The player controls a soldier in a trench at the bottom of the screen. Waves
 of enemies spawn at the top and march down. The player fires bullets in four
@@ -174,17 +174,8 @@ auto-attack upgrade (mortar, mustard gas, or artillery). The goal is to
 survive as many waves as possible.
 
 Input is a SNES-style USB gamepad (DragonRise generic, VID 0079:0011) read
-through Linux evdev. A keyboard fallback was explicitly disallowed by the
-instructor; we kept a deterministic stub input (\texttt{input\_fake.c}) for
-off-line development and demos when the controller is unavailable.
-
-The deliverables and supporting documents are:
-
-\begin{itemize}[leftmargin=*,nosep]
-  \item \texttt{DESIGN.md} --- the original design document with system block diagram, register map, and game design.
-  \item \texttt{SETUP.md} --- bring-up instructions: host sanity check, JTAG smoke test, and HPS integration on the SD-card image.
-  \item This report and the companion internal deep-dive (\texttt{docs/internal\_deep\_dive.md}).
-\end{itemize}
+through Linux evdev. A deterministic stub (\texttt{input\_fake.c}) stands in
+for the controller during off-line development.
 
 % ===========================================================================
 \section{System Architecture}
@@ -1028,28 +1019,19 @@ replacement is a drop-in.
 % ===========================================================================
 \section{Conclusion}
 
-The Phase 1 smoke-test bitstream works as designed on hardware: 640$\times$480
-@ 60\,Hz, tile + sprite + palette + HUD pipeline, full VGA pin set. The
-Phase 2 HPS-integrated build boots Linux, exposes the peripheral on the
-lightweight bridge, runs the C game at 60\,Hz, and reads SNES controller
-input via evdev. Player movement, firing, enemy spawning, wave progression,
-level-up, mortar timers, artillery, gas clouds, ammo drops, and the HUD
-numerics all function in the deployed configuration.
-
-The project demonstrates a complete hardware/software co-design: a custom
-SystemVerilog GPU peripheral in the Cyclone V fabric handles rendering, while
-the ARM Cortex-A9 runs the game logic and writes sprite tables, palette, and
-player state through a 16\,KB Avalon-MM slave with a tear-free VBLANK swap.
-The partition keeps the CPU free of pixel work and gives the design headroom
-for richer gameplay within the same memory and bandwidth budget.
+The Phase 1 smoke-test bitstream works on hardware: 640$\times$480 @ 60\,Hz,
+tile + sprite + palette + HUD pipeline, full VGA pin set. The Phase 2
+HPS-integrated build boots Linux, exposes the peripheral on the lightweight
+bridge, runs the C game at 60\,Hz, and reads SNES controller input via
+evdev. Player movement, firing, enemy spawning, wave progression, level-up,
+mortar timers, artillery, gas clouds, ammo drops, and the HUD numerics all
+function in the deployed configuration.
 
 % ===========================================================================
 \section*{References}
 \addcontentsline{toc}{section}{References}
 
 \begin{enumerate}[leftmargin=*,nosep]
-  \item \texttt{DESIGN.md} --- Project design document, April 2026.
-  \item \texttt{SETUP.md} --- Bring-up instructions for Phase 0, Phase 1, and Phase 2.
   \item Terasic Inc., \emph{DE1-SoC User Manual}, Revision 1.2.4.
   \item Intel/Altera, \emph{Cyclone V Device Handbook} (Volume 1).
   \item Intel/Altera, \emph{Avalon Interface Specifications}, MNL-AVABUSREF.

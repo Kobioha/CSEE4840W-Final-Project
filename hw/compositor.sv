@@ -4,7 +4,7 @@ module compositor (
     input  logic        visible,
     input  logic [15:0] scroll_x, scroll_y,
 
-    // HUD overlay inputs (per DESIGN.md Sec. 4.4 + Batch B extensions)
+    // HUD overlay inputs
     input  logic        hud_on,
     input  logic [31:0] player_stats,    // [7:0] hp, [15:8] wave BCD, [31:16] level
     input  logic [31:0] score_reg,       // [23:0] 6-digit BCD score

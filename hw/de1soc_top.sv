@@ -1,7 +1,7 @@
 // de1soc_top.sv -- Phase 1 top for the smoke-test bitstream. No HPS, no Qsys.
 // nml_gpu boots with its memories pre-loaded from the .hex files via
 // $readmemh, so the bitstream alone draws a VGA frame. Replaced by
-// soc_system_top in Phase 2 (see SETUP.md). VGA pins are in nml_gpu.qsf.
+// soc_system_top in Phase 2. VGA pins are in nml_gpu.qsf.
 //
 // KEY[0]    active-low reset
 // LEDR[0]   tied 1 (FPGA powered)

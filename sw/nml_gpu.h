@@ -4,15 +4,14 @@
 /*
  * nml_gpu.h -- userspace driver header for the No Man's Land FPGA peripheral.
  *
- * Register offsets, sprite layout, and writer prototypes mirror DESIGN.md
- * sections 5 and 6.3. The driver maps the HPS-to-FPGA Lightweight bridge
- * (16 KB at 0xFF200000 in HPS physical address space) into the process via
- * /dev/mem and exposes typed writers for each register region.
+ * The driver maps the HPS-to-FPGA Lightweight bridge (16 KB at 0xFF200000 in
+ * HPS physical address space) into the process via /dev/mem and exposes typed
+ * writers for each register region. Register offsets and sprite layout are
+ * defined below.
  *
  * Caveat: the SystemVerilog sprite_eval module reads bit 47 of the 64-bit
- * sprite-table entry as an "active" flag (not bit-for-bit faithful to the
- * design doc, which uses sentinel coordinates). The convenience writers
- * below set bit 7 of `flags` for visible sprites and clear it for hidden.
+ * sprite-table entry as an "active" flag. The convenience writers below set
+ * bit 7 of `flags` for visible sprites and clear it for hidden.
  */
 
 #include <stdint.h>
